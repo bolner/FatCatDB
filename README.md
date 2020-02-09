@@ -243,7 +243,7 @@ Note that since the cursor is an enumerable of record objects, you can use `Linq
 
 # Async support
 
-Asynchrounous versions of all methods are available which are involved in input-output operations. Using async is only recommended for server applications. The only case one would use async in a console application is, when there's a source of async events, for example a fast-CGI client, or a hardware interface.
+Asynchronous versions of all methods are available which are involved in input-output operations. Using async is only recommended for server applications. The only case one would use async in a console application is, when there's a source of async events, for example a fast-CGI client, or a hardware interface.
 
 Examples for the query object:
 ```csharp
