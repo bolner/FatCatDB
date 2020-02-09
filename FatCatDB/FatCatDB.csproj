@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <TargetFramework>netcoreapp3.1</TargetFramework>
+        <LangVersion>8</LangVersion>
+        <NoWarn>CS1998, CS1711</NoWarn>
+        <GenerateDocumentationFile>true</GenerateDocumentationFile>
+
+        <PackageId>FatCatDB</PackageId>
+        <Version>1.0.0</Version>
+        <Authors>Tamas Bolner</Authors>
+        <Title>Zero configuration, high performance database library for ETL workflows</Title>
+        <Description>Zero configuration, high performance database library for ETL workflows</Description>
+        <Copyright>Copyright 2020 Tamas Bolner</Copyright>
+        <PackageLicenseFile>LICENSE</PackageLicenseFile>
+        <PackageTags>database, ETL, dotnet-core, library</PackageTags>
+        <RepositoryUrl>https://github.com/bolner/FatCatDB</RepositoryUrl>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="..\LICENSE" Pack="true" Visible="false" PackagePath="\" />
+        <PackageReference Include="LinearTsvParser" Version="1.1.7" />
+        <PackageReference Include="NodaTime" Version="2.4.7" />
+        <PackageReference Include="AsyncEnumerator" Version="4.0.2" />
+        <PackageReference Include="Nito.AsyncEx" Version="5.0.0" />
+    </ItemGroup>
+</Project>

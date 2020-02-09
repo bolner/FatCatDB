@@ -1,0 +1,5 @@
+*.csproj text eol=lf
+*.cs text eol=lf
+*.md text eol=lf
+*.bat text eol=crlf
+*.txt text eol=lf

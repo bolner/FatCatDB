@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <TargetFramework>netcoreapp3.1</TargetFramework>
+        <LangVersion>8</LangVersion>
+        <NoWarn>CS1998, CS1711</NoWarn>
+        <OutputType>Exe</OutputType>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="ConController" Version="1.0.2" />
+        <PackageReference Include="NodaTime" Version="2.4.7" />
+
+	    <ProjectReference Include="..\FatCatDB\FatCatDB.csproj" />
+	</ItemGroup>
+</Project>

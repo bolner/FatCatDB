@@ -1,0 +1,192 @@
+/*
+    Copyright 2020 Tamas Bolner
+    
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+    
+      http://www.apache.org/licenses/LICENSE-2.0
+    
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+*/
+using System;
+using System.Linq;
+using System.Collections.Generic;
+using System.Linq.Expressions;
+using System.Threading.Tasks;
+
+namespace FatCatDB {
+    /// <summary>
+    /// A query for fetching data from the database
+    /// </summary>
+    /// <typeparam name="T">An annotated class of a database table record</typeparam>
+    public class Query<T> where T : class, new() {
+        internal Table<T> Table { get; }
+        internal Dictionary<int, string> IndexFilters { get; } = new Dictionary<int, string>();
+        internal List<Func<T, bool>> FlexFilters { get; } = new List<Func<T, bool>>();
+        private Int64 offset = 0;
+        internal Int64 Offset { get { return offset; } }
+        private Int64 queryLimit = 0;
+        internal Int64 QueryLimit { get { return queryLimit; } }
+        internal List<Tuple<int, SortingDirection>> Sorting { get; } = new List<Tuple<int, SortingDirection>>();
+        internal IndexPriority? IndexPriority = null;
+        internal string HintedIndex = null;
+
+        /// <summary>
+        /// Constructor
+        /// </summary>
+        public Query(Table<T> table) {
+            this.Table = table;
+        }
+
+        /// <summary>
+        /// Fast filtering, using indexes. If you would like to filter using
+        /// arbitrary expressions, then use the 'Filter' method instead.
+        /// The 'Filter' is slower than the 'Where', because that's not
+        /// using indexes.
+        /// </summary>
+        /// <param name="property">Filter by this column of the table</param>
+        /// <param name="value">Exact match with this value</param>
+        public Query<T> Where(Expression<Func<T, object>> property, object value) {
+            IndexFilters[Table.GetPropertyIndex(Table.GetPropertyName(property))] = Table.ConvertValueToString(value);
+            
+            return this;
+        }
+
+        /// <summary>
+        /// Generic filtering. In contrary to the 'Where' method, the 'Filter' method
+        /// doesn't use indexes, so its query time is linear, but it can handle
+        /// arbitrary filter expressions. Please use it in combination with the
+        /// 'Where' method for optimal performace.
+        /// </summary>
+        /// <param name="filterExpression">An arbitrary expression, involving the columns of the table.</param>
+        public Query<T> FlexFilter(Func<T, bool> filterExpression) {
+            this.FlexFilters.Add(filterExpression);
+
+            return this;
+        }
+
+        /// <summary>
+        /// Returns a cursor which can iterate through
+        /// the queried items.
+        /// </summary>
+        public Cursor<T> GetCursor() {
+            return new Cursor<T>(this);
+        }
+
+        /// <summary>
+        /// Returns the first record or null if none found.
+        /// </summary>
+        public T FindOne() {
+            return this.GetCursor().FirstOrDefault();
+        }
+
+        /// <summary>
+        /// Returns the first record or null if none found.
+        /// </summary>
+        public async Task<T> FindOneAsync() {
+            return await this.GetCursor().FetchNextAsync();
+        }
+
+        /// <summary>
+        /// Set limit and offset for the query.
+        /// Limit is disabled by default (limit = 0)
+        /// </summary>
+        /// <param name="limit">How many items to return</param>
+        /// <param name="offset">At which item to start. 0 = first</param>
+        public Query<T> Limit(Int64 limit, Int64 offset = 0) {
+            this.queryLimit = limit;
+            this.offset = offset;
+
+            return this;
+        }
+
+        /// <summary>
+        /// Add a sorting directive for a specific field.
+        /// Multiple field sorting is supported.
+        /// </summary>
+        public Query<T> OrderByAsc(Expression<Func<T, object>> property) {
+            var pIndex = Table.GetPropertyIndex(Table.GetPropertyName(property));
+            this.ValidateSortingProperty(pIndex);
+            this.Sorting.Add(Tuple.Create(pIndex, SortingDirection.Ascending));
+
+            return this;
+        }
+
+        /// <summary>
+        /// Add a sorting directive for a specific field.
+        /// Multiple field sorting is supported.
+        /// </summary>
+        public Query<T> OrderByDesc(Expression<Func<T, object>> property) {
+            var pIndex = Table.GetPropertyIndex(Table.GetPropertyName(property));
+            this.ValidateSortingProperty(pIndex);
+            this.Sorting.Add(Tuple.Create(pIndex, SortingDirection.Descending));
+
+            return this;
+        }
+
+        /// <summary>
+        /// Checks whether the user tries to sort by a column of which
+        /// type doesn't implement the IComparable interface.
+        /// </summary>
+        /// <param name="propertyIndex">The index of the property/column</param>
+        private void ValidateSortingProperty(int propertyIndex) {
+            if (!(typeof(IComparable).IsAssignableFrom(Table.GetRealPropertyType(propertyIndex)))) {
+                var columnName = Table.ColumnNames[propertyIndex];
+                throw new FatCatException($"Tried to order by column '{Table.Annotation.Name}.{columnName}'"
+                    + " which has a type that doesn't implement the IComparable interface.");
+            }
+        }
+
+        /// <summary>
+        /// Tells the query planner how to select the best index:
+        /// by filtering or by sorting. The defult is the filtering
+        /// priority, which should be used when a minority of the
+        /// records are supposed to be returned. Use sorting priority
+        /// when you expect to query back most of the records in
+        /// a specific order.
+        /// This setting is ignored if you hint a specific index
+        /// using 'HintIndex'.
+        /// </summary>
+        public Query<T> HintIndexPriority(IndexPriority priority) {
+            this.IndexPriority = priority;
+            return this;
+        }
+
+        /// <summary>
+        /// Tells the query planner which index to use. Use the
+        /// same name as in the annotation of the record class.
+        /// If this option is set, then the 'HintIndexPriority'
+        /// setting is ignored.
+        /// </summary>
+        public Query<T> HintIndex(string indexName) {
+            this.HintedIndex = indexName;
+            return this;
+        }
+
+        /// <summary>
+        /// Creates an Exporter instance
+        /// </summary>
+        public Exporter<T> GetExporter() {
+            return new Exporter<T>(Table, this.GetCursor());
+        }
+
+        /// <summary>
+        /// Prints out the query result to the standard output.
+        /// </summary>
+        public void Print() {
+            this.GetExporter().Print();
+        }
+
+        /// <summary>
+        /// Prints out the query result to the standard output.
+        /// </summary>
+        public async Task PrintAsync() {
+            await this.GetExporter().PrintAsync();
+        }
+    }
+}
