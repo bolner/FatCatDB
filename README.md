@@ -297,7 +297,7 @@ internal class DbContext : DbContextBase {
 }
 ```
 
-When you add a new type, you alwas have to add 2 converters: one that convert to string, and another that converts back from a string. The 2 template parameters of `RegisterTypeConverter` are the source and the target type. Examples:
+When you add a new type, you alwas have to add 2 converters: one that converts to string, and another that converts back from a string. The 2 template parameters of `RegisterTypeConverter` are the source and the target type. Examples:
 
 ```csharp
 typeConverterSetup
@@ -312,6 +312,8 @@ typeConverterSetup
 BTW the `LocalDateTime` and `LocalDate` types of [NodaTime](https://github.com/nodatime/nodatime) are added by default to FatCatDB, as this library is the recommended way of dealing with time, instead of the built-in classes of `.NET`.
 
 If you want to sort by your custom type, then it has to implement the `IComperable` interface.
+
+You can also overwrite the built-in converters with your own ones. Just use the same `RegisterTypeConverter` method as in the above examples. You can find the built-in ones in [the constructor of TypeConverterSetup](FatCatDB/TypeConverter.cs).
 
 # Hinting the query planner
 
