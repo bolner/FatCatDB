@@ -25,6 +25,9 @@ namespace FatCatDB {
     public class TypeConverterSetup {
         private Dictionary<string, Func<object, object>> converters =  new Dictionary<string, Func<object, object>>();
         private LocalDatePattern datePattern = LocalDatePattern.CreateWithInvariantCulture("yyyy-MM-dd");
+        private LocalDateTimePattern dtPattern = LocalDateTimePattern.CreateWithInvariantCulture(
+            "yyyy-MM-dd HH:mm:ss"
+        );
 
         /// <summary>
         /// Constructor
@@ -49,6 +52,14 @@ namespace FatCatDB {
 
             this.RegisterTypeConverter<LocalDate, string>(x => x.ToString("yyyy-MM-dd", null));
             this.RegisterTypeConverter<string, LocalDate>(x => datePattern.Parse(x).Value);
+
+            this.RegisterTypeConverter<LocalDateTime, string>((x) => {
+                    return x.ToString("yyyy-MM-dd HH:mm:ss", null);
+            });
+
+            this.RegisterTypeConverter<string, LocalDateTime>((x) => {
+                    return dtPattern.Parse(x).Value;
+            });
         }
 
         /// <summary>

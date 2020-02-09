@@ -275,7 +275,7 @@ await exporter.PrintToFileAsync(string path);
 
 With FatCatDB you can use columns of arbitrary types. It's very easy to extend it. The only thing to do is to use the `TypeConverterSetup` parameter in the `OnConfiguring` event of your database context class.
 
-The following example adds the `LocalDateTime` type of the [NodaTime](https://github.com/nodatime/nodatime) library to FatCatDB. (This is added by default BTW, you don't need to do that. It's only an example.)
+The following example adds the `LocalDateTime` type of the [NodaTime](https://github.com/nodatime/nodatime) library to FatCatDB. (This type is added by default already, this is only an example. See below.)
 
 ```csharp
 internal class DbContext : DbContextBase {
