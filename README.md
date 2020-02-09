@@ -245,7 +245,7 @@ Note that since the cursor is an enumerable of record objects, you can use `Linq
 
 Asynchrounous versions of all methods are available which are involved in input-output operations. Using async is only recommended for server applications. The only case one would use async in a console application is, when there's a source of async events, for example a fast-CGI client, or a hardware interface.
 
-Examples in the query object:
+Examples for the query object:
 ```csharp
 await query.FindOneAsync();
 await query.PrintAsync();
@@ -260,10 +260,10 @@ while ((var item = await cursor.FetchNextAsync()) != null) {
 
 You can also fetch multiple items in one call:
 ```csharp
-var List<MyRecord> = await cursor.FetchAsync(int count);
+List<MyRecord> items = await cursor.FetchAsync(int count);
 ```
 
-Async methods for the exporter, that output the data in `linear TSV` format:
+Async methods for the exporter that output the data in `linear TSV` text format:
 ```csharp
 await exporter.PrintAsync();
 await exporter.PrintToTsvWriterAsync(TsvWriter output);
