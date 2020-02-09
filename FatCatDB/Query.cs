@@ -45,8 +45,8 @@ namespace FatCatDB {
 
         /// <summary>
         /// Fast filtering, using indexes. If you would like to filter using
-        /// arbitrary expressions, then use the 'Filter' method instead.
-        /// The 'Filter' is slower than the 'Where', because that's not
+        /// arbitrary expressions, then use the 'FlexFilter' method instead.
+        /// The 'FlexFilter' is slower than the 'Where', because that's not
         /// using indexes.
         /// </summary>
         /// <param name="property">Filter by this column of the table</param>
@@ -58,7 +58,7 @@ namespace FatCatDB {
         }
 
         /// <summary>
-        /// Generic filtering. In contrary to the 'Where' method, the 'Filter' method
+        /// Generic filtering. In contrary to the 'Where' method, the 'FlexFilter' method
         /// doesn't use indexes, so its query time is linear, but it can handle
         /// arbitrary filter expressions. Please use it in combination with the
         /// 'Where' method for optimal performace.
