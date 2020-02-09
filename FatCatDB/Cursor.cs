@@ -78,9 +78,15 @@ namespace FatCatDB {
         /// <param name="count">The maximal number of items to return</param>
         public async Task<List<T>> FetchAsync(int count) {
             var result = new List<T>();
+            T item;
 
             for(int i = 0; i < count; i++) {
-                result.Add(await queryEngine.FetchNextRecordAsync());
+                item = await queryEngine.FetchNextRecordAsync();
+                if (item == null) {
+                    break;
+                }
+
+                result.Add(item);
             }
 
             return result;
