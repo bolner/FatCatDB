@@ -79,10 +79,21 @@ namespace FatCatDB {
         /// check has to be done earlier separately to
         /// ensure a better performance.
         /// </summary>
-        internal void Set(T record) {
-            var unique = table.GetUnique(record);
-
+        /// <param name="unique">The unique key of the record</param>
+        /// <param name="record">A new record to add or to update an existing with its content.</param>
+        internal void Set(string unique, T record) {
             this.data[unique] = record;
+        }
+
+        /// <summary>
+        /// Returns the record for its unique key or
+        /// NULL if not found.
+        /// </summary>
+        internal T Get(string unique) {
+            T record = null;
+            this.data.TryGetValue(unique, out record);
+
+            return record;
         }
 
         /// <summary>

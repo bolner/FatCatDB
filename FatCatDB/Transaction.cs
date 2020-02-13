@@ -31,21 +31,41 @@ namespace FatCatDB {
         private List<TableIndex<T>> indices = null;
         private int parallelism;
         private Exception exception = null;
+        private Func<T, T, T> updateEventHandler = null;
 
         private Dictionary<string, PacketPlan> packetPlans = new Dictionary<string, PacketPlan>();
 
         /// <summary>
-        /// Collects the records for a packet to be added or updated
+        /// Collects the records for a packet to be added or updated.
+        /// Keeps track of the unique keys of the records.
         /// </summary>
         private class PacketPlan {
-            public List<T> Records { get; }
-            public TableIndex<T> Index { get; }
-            public List<string> IndexPath { get; }
+            private Table<T> table;
+            internal Dictionary<string, T> Records { get; } = new Dictionary<string, T>();
+            internal HashSet<string> Removed { get; } = new HashSet<string>();
+            internal TableIndex<T> Index { get; }
+            internal List<string> IndexPath { get; }
+            internal string IndexPathStr { get; }
 
-            public PacketPlan(List<T> records, TableIndex<T> index, List<string> indexPath) {
-                this.Records = records;
+            internal PacketPlan(Table<T> table, TableIndex<T> index, List<string> indexPath, string indexPathStr) {
+                this.table = table;
                 this.Index = index;
                 this.IndexPath = indexPath;
+                this.IndexPathStr = indexPathStr;
+            }
+
+            internal void Add(T record) {
+                var unique = table.GetUnique(record);
+
+                Records[unique] = record;
+                Removed.Remove(unique);
+            }
+
+            internal void Remove(T record) {
+                var unique = table.GetUnique(record);
+
+                this.Removed.Add(unique);
+                this.Records.Remove(unique);
             }
         }
 
@@ -71,10 +91,10 @@ namespace FatCatDB {
                 var indexPathStr = String.Join('\0', indexPath);
                 
                 if (!packetPlans.ContainsKey(indexPathStr)) {
-                    packetPlans[indexPathStr] = new PacketPlan(new List<T>(), index, indexPath);
+                    packetPlans[indexPathStr] = new PacketPlan(table, index, indexPath, indexPathStr);
                 }
 
-                packetPlans[indexPathStr].Records.Add(record);
+                packetPlans[indexPathStr].Add(record);
             }
 
             return this;
@@ -84,7 +104,17 @@ namespace FatCatDB {
         /// Removes a record by its unique key.
         /// </summary>
         public Transaction<T> Remove(T record) {
-            remove[table.GetUnique(record)] = true;
+            foreach(var index in indices) {
+                var indexPath = table.GetIndexPath(index, record);
+                var indexPathStr = String.Join('\0', indexPath);
+                
+                if (!packetPlans.ContainsKey(indexPathStr)) {
+                    packetPlans[indexPathStr] = new PacketPlan(table, index, indexPath, indexPathStr);
+                }
+
+                packetPlans[indexPathStr].Remove(record);
+            }
+
             return this;
         }
 
@@ -143,6 +173,56 @@ namespace FatCatDB {
             }
         }
 
+        private void UpdatePacketFromPlan(PacketPlan plan, Packet<T> packet) {
+            foreach(var item in plan.Records) {
+                if (this.updateEventHandler != null) {
+                    var old = packet.Get(item.Key);
+
+                    if (old != null) {
+                        /*
+                            Changing indexed fields is not allowed, because
+                            that would require an additional read/write pass,
+                            because then the record belongs to a different
+                            packet. (It would be inefficient to do a second pass.)
+                        */
+                        var updatedRecord = updateEventHandler(old, item.Value);
+                        if (updatedRecord == null) {
+                            /*
+                                If the event handler returns NULL, then it
+                                wants to avoid the update.
+                            */
+                            continue;
+                        }
+
+                        var newIndexPath = String.Join('\0', table.GetIndexPath(plan.Index, updatedRecord));
+                        if (newIndexPath != plan.IndexPathStr) {
+                            throw new FatCatException($"An update event handler has changed indexed fields in "
+                                + $"a record for table '{table.Annotation.Name}'. Changing indexed fields inside OnUpdate functions is not allowed.");
+                        }
+
+                        /*
+                            If the unique key has changed,
+                            then remove the entry under the old key,
+                            before setting the new.
+                        */
+                        var newUnique = table.GetUnique(updatedRecord);
+                        if (newUnique != item.Key) {
+                            packet.Remove(item.Key);
+                        }
+
+                        packet.Set(newUnique, updatedRecord);
+                        continue;
+                    }
+                }
+
+                packet.Set(item.Key, item.Value);
+            }
+
+            foreach(var key in plan.Removed) {
+                packet.Remove(key);
+            }
+        }
+
         /// <summary>
         /// Entry point for a worker thread
         /// </summary>
@@ -159,15 +239,7 @@ namespace FatCatDB {
                     packet.Load();
                     packet.DeserializeDecompress();
 
-                    foreach(var record in packetPlan.Records) {
-                        var unique = table.GetUnique(record);
-
-                        if (this.remove.ContainsKey(unique)) {
-                            packet.Remove(unique);
-                        } else {
-                            packet.Set(record);
-                        }
-                    }
+                    this.UpdatePacketFromPlan(packetPlan, packet);
 
                     packet.SerializeCompress();
                     packet.Save();
@@ -193,15 +265,7 @@ namespace FatCatDB {
                     await packet.LoadAsync();
                     packet.DeserializeDecompress();
 
-                    foreach(var record in packetPlan.Records) {
-                        var unique = table.GetUnique(record);
-
-                        if (this.remove.ContainsKey(unique)) {
-                            packet.Remove(unique);
-                        } else {
-                            packet.Set(record);
-                        }
-                    }
+                    this.UpdatePacketFromPlan(packetPlan, packet);
 
                     packet.SerializeCompress();
                     await packet.SaveAsync();
@@ -209,6 +273,13 @@ namespace FatCatDB {
             } catch (Exception ex) {
                 this.exception = ex;
             }
+        }
+
+        /// <summary>
+        /// Set up an event handler for update events.
+        /// </summary>
+        public void OnUpdate(Func<T, T, T> eventHandler) {
+            this.updateEventHandler = eventHandler;
         }
     }
 }

@@ -37,6 +37,9 @@ namespace FatCatDB.Test {
         [Column(Name = "last_updated")]
         public LocalDateTime LastUpdated { get; set; }
 
+        [Column(Name = "created")]
+        public LocalDateTime Created { get; set; }
+
         [Column(Name = "impressions")]
         public Nullable<long> Impressions { get; set; }
 

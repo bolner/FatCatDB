@@ -14,6 +14,7 @@
     limitations under the License.
 */
 using System;
+using System.Linq;
 using System.Threading.Tasks;
 using NodaTime;
 using ConController;
@@ -27,8 +28,6 @@ namespace FatCatDB.Test {
             var rnd = new Random(1234567890);
             var tr = db.Metrics.NewTransaction();
 
-            var now = SystemClock.Instance.GetCurrentInstant().InZone(DateTimeZoneProviders.Tzdb.GetSystemDefault()).LocalDateTime;
-            
             for (int i = 0; i < 2; i++) {
                 var accountID = $"a{i + 10}";
 
@@ -45,6 +44,7 @@ namespace FatCatDB.Test {
                             te.AccountID = accountID;
                             te.CampaignID = campaignID;
                             te.AdID = adID;
+                            te.Created = new LocalDateTime(2020, 2, 2, 12, 21, 05);
                             te.LastUpdated = new LocalDateTime(2020, 2, 2, 12, 21, 05);
                             te.Impressions = rnd.Next(1000, 100000);
                             te.Clicks = rnd.Next(100, 1000);
@@ -61,7 +61,7 @@ namespace FatCatDB.Test {
             tr.Commit();
         }
 
-        [EntryPoint(Name = "query1", Description = "Query records and print them to STDOUT")]
+        [EntryPoint(Name = "query1", Description = "Query all, sort on 4 fields.")]
         public static async Task QueryData1() {
             var db = new DbContext();
             db.Metrics.Query()
@@ -72,7 +72,7 @@ namespace FatCatDB.Test {
                 .Print();
         }
 
-        [EntryPoint(Name = "query2", Description = "Query records and print them to STDOUT")]
+        [EntryPoint(Name = "query2", Description = "Query by date and account. Sort on 2 fields.")]
         public static async Task QueryData2() {
             var db = new DbContext();
             db.Metrics.Query()
@@ -83,7 +83,7 @@ namespace FatCatDB.Test {
                 .Print();
         }
 
-        [EntryPoint(Name = "query3", Description = "Query records and print them to STDOUT")]
+        [EntryPoint(Name = "query3", Description = "Query by date and account. Use flexfilter. Sort by cost.")]
         public static async Task QueryData3() {
             var db = new DbContext();
             db.Metrics.Query()
@@ -92,6 +92,53 @@ namespace FatCatDB.Test {
                 .FlexFilter(x => x.Revenue > 50)
                 .OrderByDesc(x => x.Cost)
                 .Print();
+        }
+
+        [EntryPoint(Name = "query4", Description = "Filter by date and account.")]
+        public static async Task QueryData4() {
+            var db = new DbContext();
+            db.Metrics.Query()
+                .Where(x => x.Date, "2020-01-02")
+                .Where(x => x.AccountID, "a11")
+                .OrderByDesc(x => x.AdID)
+                .Print();
+        }
+
+        [EntryPoint(Name = "update", Description = "Update some of the records")]
+        public static async Task UpdateRecords1() {
+            var db = new DbContext();
+            var transaction = db.Metrics.NewTransaction();
+
+            transaction.OnUpdate((oldRecord, newRecord) => {
+                newRecord.Created = oldRecord.Created;
+                newRecord.Clicks = oldRecord.Clicks + 1;
+                
+                return newRecord;
+            });
+
+            var rnd = new Random(1234567890);
+
+            var items = db.Metrics.Query()
+                .Where(x => x.Date, "2020-01-02")
+                .Where(x => x.AccountID, "a11")
+                .OrderByAsc(x => x.AdID)
+                .Limit(1000)
+                .GetCursor();
+
+            foreach(var item in items) {
+                item.Date = new LocalDate(2020, 1, 2);
+                item.LastUpdated = new LocalDateTime(2020, 2, 6, 11, 08, 46);
+                item.Created = db.NowUTC;
+                item.Impressions = rnd.Next(1000, 100000);
+                item.Clicks = rnd.Next(100, 1000);
+                item.Conversions = rnd.Next(1, 100);
+                item.Revenue = rnd.NextDouble() * 100;
+                item.Cost = rnd.NextDouble() * 50;
+
+                transaction.Add(item);
+            }
+
+            transaction.Commit();
         }
 
         [EntryPoint(Name = "stressTest", Description = "Create large amount of data")]
