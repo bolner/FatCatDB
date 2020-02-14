@@ -50,11 +50,11 @@ namespace FatCatDB {
             this.RegisterTypeConverter<double, string>(x => x.ToString());
             this.RegisterTypeConverter<string, double>(x => Convert.ToDouble(x));
 
-            this.RegisterTypeConverter<LocalDate, string>(x => x.ToString("yyyy-MM-dd", null));
+            this.RegisterTypeConverter<LocalDate, string>(x => datePattern.Format(x));
             this.RegisterTypeConverter<string, LocalDate>(x => datePattern.Parse(x).Value);
 
             this.RegisterTypeConverter<LocalDateTime, string>((x) => {
-                    return x.ToString("yyyy-MM-dd HH:mm:ss", null);
+                    return dtPattern.Format(x);
             });
 
             this.RegisterTypeConverter<string, LocalDateTime>((x) => {

@@ -34,6 +34,8 @@ foreach(var item in cursor) {
 - [Creating a database context class](#creating-a-database-context-class)
 - [Inserting and modifying data](#inserting-and-modifying-data)
 - [Queries](#queries)
+- [Atomic operations with the OnUpdate event](#atomic-operations-with-the-onupdate-event)
+- [Making fields unchangeable using OnUpdate](#making-fields-unchangeable-using-onupdate)
 - [Async support](#async-support)
 - [Adding new types](#adding-new-types)
 - [Hinting the query planner](#hinting-the-query-planner)
@@ -241,6 +243,73 @@ Example directive | Description
 
 Note that since the cursor is an enumerable of record objects, you can use `Linq expressions` on them. But if you do that, then the whole result set gets loaded into the memory (if there's enough memory for it). Therefore it's recommended to use Linq only in the presence of a `Limit` directive.
 
+# Atomic operations with the OnUpdate event
+
+During the update of a records, there's a narrow window of time, when both the old and the new versions of a record are available in memory, and there's an exclusive lock on the packet of the records. You can facilitate this opportunity by the `OnUpdate` event.
+
+You can specify a `lambda function` as an update event handler on a transaction. The return value of it will be the new version of the record to be stored.
+
+```csharp
+var db = new DbContext();
+var transaction = db.MyTable.NewTransaction();
+
+transaction.OnUpdate((oldRecord, newRecord) => {
+    if (newRecord.Type == MyRecordTypes.NoUpdate) {
+        // If you return null, then no changes will be made.
+        return null;
+    }
+
+    // This incrementation is an atomic change
+    newRecord.Counter = oldRecord.Counter + 1;
+    
+    return newRecord;
+});
+
+foreach(var record in records) {
+    ...
+    transaction.Add(record);
+}
+
+transaction.Commit();
+```
+
+The return value can be of 4 kinds:
+- You can return the old record (or a modified version of it), if you would like to minimize the changes.
+- You can return the new record (or a modified version of it), if you would like to change the most of the fields.
+- You can return `null` in order to avoid any modifications done to the old record. (The new one will just be ignored and not stored anywhere.)
+- You can create a completely new record of the same type and return it.
+
+Two things to note:
+- Changing the fields of the `unique key` is safe. You won't have any duplicate records, no worries.
+- BUT, changing fields which are used in any of the indices defined will result in an exception. It isn't allowed to change the indexed fields inside an `OnUpdate` event, because then the records would need to be relocated into another packet, which cannot be done in an efficient way. (You can do that in application code with the combination of a `remove` and an `add` on a transaction.)
+
+# Making fields unchangeable using OnUpdate
+
+In the previous section we described how to use the OnUpdate event handler in general and specificly for atomic operations.
+
+Let's say that you are importing data from an external server. You would like to insert new records and update the old ones based on the unique key of the data. One of the fields of your schema is the date of creation, calles `Created`. You don't want to change that. One solution is (the bad solution) to query the existing records, modify them based on the imported data and persist the result.
+
+But you can do this more efficiently by just pushing all your data into the table (without any previous queries), and doing the fine-tuning inside the update event handler:
+
+```csharp
+var db = new DbContext();
+var transaction = db.MyTable.NewTransaction();
+
+transaction.OnUpdate((oldRecord, newRecord) => {
+    // Keep the creation date always unchanged
+    newRecord.Created = oldRecord.Created;
+    
+    return newRecord;
+});
+
+foreach(var record in importedData) {
+    ...
+    transaction.Add(record);
+}
+
+transaction.Commit();
+```
+
 # Async support
 
 Asynchronous versions of all methods are available which are involved in input-output operations. Using async is only recommended for server applications. The only case one would use async in a console application is, when there's a source of async events, for example a fast-CGI client, or a hardware interface.
@@ -361,7 +430,6 @@ $ dotnet build -c Debug
 Run the integration tests:
 ```bash
 $ cd IntegrationTests
-$ dotnet build -c Release
 $ dotnet publish -c Release
 $ run.sh
 ```
