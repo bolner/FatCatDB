@@ -289,7 +289,7 @@ Two things to note:
 
 In the previous section we described how to use the OnUpdate event handler in general and specificly for atomic operations.
 
-Let's say that you are importing data from an external server. You would like to insert new records and update the old ones based on the unique key of the data. One of the fields of your schema is the date of creation, calles `Created`. You don't want to change that. One solution is (the bad solution) to query the existing records, modify them based on the imported data and persist the result.
+Let's say that you are importing data from an external server. You would like to insert new records and update the old ones based on the unique key of the data. One of the fields of your schema is the date of creation, called `Created`. You don't want to change that. One solution is (the bad solution) to query the existing records, modify them based on the imported data and persist the result.
 
 But you can do this more efficiently by just pushing all your data into the table (without any previous queries), and doing the fine-tuning inside the update event handler:
 
