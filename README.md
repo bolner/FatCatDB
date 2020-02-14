@@ -3,7 +3,7 @@ FatCatDB
 
 `- This project is still in its beta phase. If you want a well tested version, please come back in April. -`
 
-FatCatDB is a `zero configuration` database library for `.NET Core`. Its main target segment is `ETL workflows` (e.g. time-series data), therefore it's optimized for high throughput. Supports class-based [schema definition](#creating-a-table-schema), multiple indexes per table and fluid, object-oriented query expressions. One would use it for a smaller project to avoid managing a PostgreSQL or another full-fledged database system. With this library your project will already have data storage capability after just cloned from a GIT repo. You don't need to create and maintain Docker images for a database server.
+FatCatDB is a `zero configuration` database library for `.NET Core`. Its main target segment is `ETL workflows` (e.g. time-series data), therefore it's optimized for high throughput. Supports class-based [schema definition](#creating-a-table-schema), multiple indices per table and fluid, object-oriented query expressions. One would use it for a smaller project to avoid managing a PostgreSQL or another full-fledged database system. With this library your project will already have data storage capability after just cloned from a GIT repo. You don't need to create and maintain Docker images for a database server.
 
 # Example query
 
@@ -272,6 +272,8 @@ foreach(var record in records) {
 
 transaction.Commit();
 ```
+
+Note that a lambda function always brings its context with it. Meaning: it can see all variables/fields that are visible inside the method you defined it. This can give great flexibility.
 
 The return value can be of 4 kinds:
 - You can return the old record (or a modified version of it), if you would like to minimize the changes.
