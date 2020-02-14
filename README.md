@@ -237,7 +237,7 @@ Example directive | Description
 `.Where(x => x.Date, new LocalDate(2020, 2, 9))` | You can also use the original type of the column in `Where` filters. This also uses the indices.
 `.FlexFilter(x => x.Cost > x.Revenue && x.Impressions > 10)` | In flex filters, you can specify an arbitrary expression over the columns. This filtering is slow as it doesn't use the indices.
 `.OrderByAsc(x => x.Budget)` `.OrderByDesc(x => x.Budget)` | Ordering by a column in ascending or descending way. You can append multiple sorting directives to sort over multiple fields, in which case the order of the directives is important.
-`.Limit(limit, offset)` | The limit value specifies the number of items to return. The offset is the 0-based index of the first item to return. E.g. `.Limit(10, 20)` means to return 10 items, starting from 21th.
+`.Limit(limit, offset)` | The limit value specifies the number of items to return. The offset is the 0-based index of the first item to return. E.g. `.Limit(10, 20)` means to return 10 items, starting from 21th. The offset value is optional, you can do `.Limit(100)` for example.
 `.HintIndexPriority( IndexPriority.Sorting )` | Hinting an index selection algorithm. See the section [Hinting the query planner](#hinting-the-query-planner) for more details.
 `.HintIndex("index_name")` | Hinting a specific index. See the section [Hinting the query planner](#hinting-the-query-planner) for more details.
 
@@ -245,7 +245,7 @@ Note that since the cursor is an enumerable of record objects, you can use `Linq
 
 # Atomic operations with the OnUpdate event
 
-During the update of a records, there's a narrow window of time, when both the old and the new versions of a record are available in memory, and there's an exclusive lock on the packet of the records. You can facilitate this opportunity by the `OnUpdate` event.
+During the update of a records, there's a narrow window of time, when both the old and the new versions of a record are available in memory, and there's an exclusive lock on the packet of the records. You can exploit this opportunity by the `OnUpdate` event.
 
 You can specify a `lambda function` as an update event handler on a transaction. The return value of it will be the new version of the record to be stored.
 
@@ -445,6 +445,7 @@ $ dotnet pack -c Release
 
 # TODO
 
+- Implement OS-agnostinc way to overcome file name limitations
 - Add benchmarks
 - Implement tools for data recovery and maintenance
 - Extend the integration tests
