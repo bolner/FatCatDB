@@ -53,8 +53,30 @@ namespace FatCatDB {
             this.table = table;
             this.TableName = table.Annotation.Name;
             this.IndexName = index.Name;
-            var path = new List<string>(indexPath);
+            var path = new List<string>();
             this.isDurabilityEnabled = this.table.DbContext.Configuration.IsDurabilityEnabled;
+            FilenameEncoder encoder = new FilenameEncoder();
+            int indexLevel = 0;
+
+            /*
+                The values in the indexed fields make up the path to
+                a ".tsv.gz" file. But the values need to be encoded first
+                to be safely usable on all operating systems. 
+            */
+            foreach(string value in indexPath) {
+                string encoded = encoder.Encode(value);
+                if (encoded.Length > 247) {
+                    int propIndex = index.PropertyIndices[indexLevel];
+                    var columnName = table.ColumnNames[propIndex];
+
+                    throw new FatCatException($"Too long value for an indexed column in table '{table.Annotation.Name}' and "
+                        + $"column '{columnName}'. The encoded representation of values in indexed "
+                        + $"fields can be maximum 247 characters long. Raw value: {value}");
+                }
+
+                path.Add(encoded);
+                indexLevel++;
+            }
 
             if (table.DbContext.Configuration.DatabasePath != null) {
                 path.Insert(0, Path.Join(

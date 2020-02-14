@@ -35,6 +35,7 @@ namespace FatCatDB
         private bool noMorePackets = false;
         private long limit;
         private long offset;
+        private FilenameEncoder filenameEncoder = new FilenameEncoder();
 
         /// <summary>
         /// This will be the next item to serve to the user.
@@ -458,17 +459,23 @@ namespace FatCatDB
                     */
                     if (asc) {
                         files = Directory.EnumerateFiles(folder, "*.tsv.gz", SearchOption.TopDirectoryOnly)
-                            .Select(x => table.ConvertStringToValue(propertyIndex, Path.GetFileName(x).Replace(".tsv.gz", "")))
-                            .OrderByDescending(x => x)
-                            .Select(x => table.ConvertValueToString(x))
-                            .Where(x => x != null && x != "")
+                            .Select(x => {
+                                var fileBase = Path.GetFileName(x).Replace(".tsv.gz", "");
+                                var value = table.ConvertStringToValue(propertyIndex, filenameEncoder.Decode(fileBase));
+                                return Tuple.Create(value, fileBase);
+                            })
+                            .OrderByDescending(x => x.Item1)
+                            .Select(x => x.Item2)
                             .ToArray();
                     } else {
                         files = Directory.EnumerateFiles(folder, "*.tsv.gz", SearchOption.TopDirectoryOnly)
-                            .Select(x => table.ConvertStringToValue(propertyIndex, Path.GetFileName(x).Replace(".tsv.gz", "")))
-                            .OrderBy(x => x)
-                            .Select(x => table.ConvertValueToString(x))
-                            .Where(x => x != null && x != "")
+                            .Select(x => {
+                                var fileBase = Path.GetFileName(x).Replace(".tsv.gz", "");
+                                var value = table.ConvertStringToValue(propertyIndex, filenameEncoder.Decode(fileBase));
+                                return Tuple.Create(value, fileBase);
+                            })
+                            .OrderBy(x => x.Item1)
+                            .Select(x => x.Item2)
                             .ToArray();
                     }
                 } else {
@@ -477,17 +484,23 @@ namespace FatCatDB
                     */
                     if (asc) {
                         files = Directory.EnumerateDirectories(folder, "*", SearchOption.TopDirectoryOnly)
-                            .Select(x => table.ConvertStringToValue(propertyIndex, Path.GetFileName(x)))
-                            .OrderByDescending(x => x)
-                            .Select(x => table.ConvertValueToString(x))
-                            .Where(x => x != null && x != "")
+                            .Select(x => {
+                                var fileBase = Path.GetFileName(x);
+                                var value = table.ConvertStringToValue(propertyIndex, filenameEncoder.Decode(fileBase));
+                                return Tuple.Create(value, fileBase);
+                            })
+                            .OrderByDescending(x => x.Item1)
+                            .Select(x => x.Item2)
                             .ToArray();
                     } else {
                         files = Directory.EnumerateDirectories(folder, "*", SearchOption.TopDirectoryOnly)
-                            .Select(x => table.ConvertStringToValue(propertyIndex, Path.GetFileName(x)))
-                            .OrderBy(x => x)
-                            .Select(x => table.ConvertValueToString(x))
-                            .Where(x => x != null && x != "")
+                            .Select(x => {
+                                var fileBase = Path.GetFileName(x);
+                                var value = table.ConvertStringToValue(propertyIndex, filenameEncoder.Decode(fileBase));
+                                return Tuple.Create(value, fileBase);
+                            })
+                            .OrderBy(x => x.Item1)
+                            .Select(x => x.Item2)
                             .ToArray();
                     }
                 }
