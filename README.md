@@ -357,7 +357,7 @@ internal class DbContext : DbContextBase {
     protected override void OnConfiguring (TypeConverterSetup typeConverterSetup, Configurator configurator) {
         typeConverterSetup
             .RegisterTypeConverter<LocalDateTime, string>((x) => {
-                return x.ToString("yyyy-MM-dd HH:mm:ss", null);
+                return pattern.Format(x);
             })
             .RegisterTypeConverter<string, LocalDateTime>((x) => {
                 return pattern.Parse(x).Value;
