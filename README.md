@@ -263,16 +263,18 @@ Console.Write(plan);
 
 The response:
 
-> - The default index selection mode was selected which gives priority to filtering over sorting.
-> - The selected index is 'account_date'. The steps of the query are:
->     - Index levels:
->         - 1. account_id: Select one (exact match)
->         - 2. date: Sort by (full scan)
->     - Apply flex filtering.
->     - Apply the sorting directives inside the packets, which weren't used for an index level:
->         - cost
->     - Offset: Index of the first record to return: 10
->     - Limit: Number of records to return: 100
+```
+- The default index selection mode was selected which gives priority to filtering over sorting.
+- The selected index is 'account_date'. The steps of the query are:
+    - Index levels:
+        - 1. account_id: Select one (exact match)
+        - 2. date: Sort by (full scan)
+    - Apply flex filtering.
+    - Apply the sorting directives inside the packets, which weren't used for an index level:
+        - cost
+    - Offset: Index of the first record to return: 10
+    - Limit: Number of records to return: 100
+```
 
 # Atomic operations with the OnUpdate event
 
