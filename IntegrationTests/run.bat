@@ -13,3 +13,6 @@ bin\Release\netcoreapp3.1\publish\IntegrationTests.exe test/query4 >Results\quer
 
 bin\Release\netcoreapp3.1\publish\IntegrationTests.exe test/update
 bin\Release\netcoreapp3.1\publish\IntegrationTests.exe test/query4 >Results\query4_after_update.txt
+
+bin\Release\netcoreapp3.1\publish\IntegrationTests.exe test/queryPlan1 >Results\queryPlan1.txt
+bin\Release\netcoreapp3.1\publish\IntegrationTests.exe test/queryPlan2 >Results\queryPlan2.txt

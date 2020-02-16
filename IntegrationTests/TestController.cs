@@ -141,56 +141,31 @@ namespace FatCatDB.Test {
             transaction.Commit();
         }
 
-        [EntryPoint(Name = "stressTest", Description = "Create large amount of data")]
-        public static async Task StressTest() {
+        [EntryPoint(Name = "queryPlan1", Description = "Output the query plan for a complex query")]
+        public static async Task QueryPlan1() {
             var db = new DbContext();
-            var rnd = new Random(1234567890);
-            var tr = db.Metrics.NewTransaction();
-
-            for (int i = 0; i < 12; i++) {
-                var accountID = $"a{i + 10}";
-
-                for (int j = 0; j < 100; j++) {
-                    var campaignID = $"c{j + 10}a{i + 10}";
-
-                    for (int k = 0; k < 180; k++) {
-                        var adID = $"ad{k + 1000}c{j + 10}a{i + 10}";
-
-                        for (int l = 0; l < 30; l++) {
-                            var te = new MetricsRecord();
-
-                            te.Date = new LocalDate(2020, 1, l + 1);
-                            te.AccountID = accountID;
-                            te.CampaignID = campaignID;
-                            te.AdID = adID;
-                            te.LastUpdated = db.NowUTC;
-                            te.Impressions = rnd.Next(1000, 100000);
-                            te.Clicks = rnd.Next(100, 1000);
-                            te.Conversions = rnd.Next(1, 100);
-                            te.Revenue = rnd.NextDouble() * 100;
-                            te.Cost = rnd.NextDouble() * 50;
-
-                            tr.Add(te);
-                        }
-                    }
-                }
-
-                Console.Write($"Account {i} / 11");
-                tr.Commit();
-                Console.Write(" - Committed");
-                System.GC.Collect();
-                Console.WriteLine(" -");
-            }
+            var plan = db.Metrics.Query()
+                .Where(x => x.AccountID, "a11")
+                .OrderByAsc(x => x.Date)
+                .OrderByAsc(x => x.Cost)
+                .FlexFilter(x => x.Impressions > x.Clicks && x.Revenue > 0)
+                .Limit(100, 10)
+                .GetQueryPlan();
+            
+            Console.Write(plan);
         }
 
-        [EntryPoint(Name = "stressQuery", Description = "Query large amount of data")]
-        public static async Task StressQuery() {
+        [EntryPoint(Name = "queryPlan2", Description = "Output the query plan for a complex query")]
+        public static async Task QueryPlan2() {
             var db = new DbContext();
-            db.Metrics.Query()
-                .OrderByAsc(x => x.Date)
+            var plan = db.Metrics.Query()
+                .Where(x => x.Date, "2020-01-02")
                 .OrderByAsc(x => x.AccountID)
-                .GetExporter()
-                .PrintToFile("var/query.tsv");
+                .OrderByAsc(x => x.Cost)
+                .FlexFilter(x => x.Impressions > x.Clicks && x.Revenue > 0)
+                .GetQueryPlan();
+            
+            Console.Write(plan);
         }
     }
 }

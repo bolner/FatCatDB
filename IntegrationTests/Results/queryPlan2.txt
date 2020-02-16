@@ -1,0 +1,9 @@
+- The default index selection mode was selected which gives priority to filtering over sorting.
+- The selected index is 'date_account'. The steps of the query are:
+    - Index levels:
+        - 1. date: Select one (exact match)
+        - 2. account_id: Sort by (full scan)
+    - Apply flex filtering.
+    - Apply the sorting directives inside the packets, which weren't used for an index level:
+        - cost
+    - Return the complete result.

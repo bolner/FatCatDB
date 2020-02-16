@@ -26,6 +26,7 @@ namespace FatCatDB {
         internal Dictionary<int, SortingDirection> SortingAssoc { get; } = new Dictionary<int, SortingDirection>();
         internal TableIndex<T> BestIndex { get; }
         internal HashSet<int> IndexFields = new HashSet<int>();
+        internal Dictionary<int, SortingDirection> BoundSorting { get; } = new Dictionary<int, SortingDirection>();
         internal List<Tuple<int, SortingDirection>> FreeSorting { get; } = new List<Tuple<int, SortingDirection>>();
 
         internal QueryPlan(Query<T> query) {
@@ -86,6 +87,7 @@ namespace FatCatDB {
                 }
                 else if (propIndex == query.Sorting[sortingLevel].Item1) {
                     // Index level is ordered
+                    BoundSorting[propIndex] = query.Sorting[sortingLevel].Item2;
                     sortingLevel++;
                     continue;
                 }
@@ -258,15 +260,69 @@ namespace FatCatDB {
         public override string ToString() {
             var sb = new StringBuilder();
 
-            if (Query.IndexPriority == IndexPriority.Filtering) {
-                sb.Append($"- The index selection method gave priority to filtering over sorting.\n");
-            } else {
-                sb.Append($"- The index selection method gave priority to sorting over filtering.\n");
+            if (Query.HintedIndex != null) {
+                sb.AppendLine($"- A specific index was hinted in the query.");
+            }
+            else if (Query.IndexPriority == null) {
+                sb.AppendLine($"- The default index selection mode was selected which gives priority to filtering over sorting.");
+            }
+            else if (Query.IndexPriority == IndexPriority.Filtering) {
+                sb.AppendLine($"- An index selection mode was hited which gives priority to filtering over sorting.");
+            }
+            else {
+                sb.AppendLine($"- An index selection mode was hited which gives priority to sorting over filtering.");
             }
 
-            sb.Append($"- The selected index is: '{this.BestIndex.Name}'\n");
+            sb.AppendLine($"- The selected index is '{this.BestIndex.Name}'. The steps of the query are:");
+            sb.AppendLine($"    - Index levels:");
+            int level = 1;
 
-            
+            foreach(var propIndex in this.BestIndex.PropertyIndices) {
+                string column = Table.ColumnNames[propIndex];
+                string operation = "Full scan (unsorted)";
+
+                if (this.Query.IndexFilters.ContainsKey(propIndex)) {
+                    operation = "Select one (exact match)";
+                }
+                else if (this.SortingAssoc.ContainsKey(propIndex)) {
+                    operation = "Sort by (full scan)";
+                }
+
+                sb.AppendLine($"        - {level}. {column}: {operation}");
+                level++;
+            }
+
+            if (this.Query.FlexFilters.Count > 0) {
+                sb.AppendLine($"    - Apply flex filtering.");
+            }
+
+            if (this.FreeIndexFilters.Count > 0) {
+                sb.AppendLine($"    - Apply the 'Where' filters, which weren't used for an index level.");
+            }
+
+            if (FreeSorting.Count > 0) {
+                var sortingColumns = FreeSorting.Select(
+                    x => Table.ColumnNames[x.Item1]
+                ).ToArray();
+                
+                sb.AppendLine($"    - Apply the sorting directives inside the packets, which weren't used for an index level:");
+
+                foreach(var col in sortingColumns) {
+                    sb.AppendLine($"        - {col}");
+                }
+            }
+
+            if (Query.Offset > 0) {
+                sb.AppendLine($"    - Offset: Index of the first record to return: {Query.Offset}");
+            }
+
+            if (Query.QueryLimit > 0) {
+                sb.AppendLine($"    - Limit: Number of records to return: {Query.QueryLimit}");
+            }
+
+            if (Query.Offset == 0 && Query.QueryLimit == 0) {
+                sb.AppendLine($"    - Return the complete result.");
+            }
 
             return sb.ToString();
         }

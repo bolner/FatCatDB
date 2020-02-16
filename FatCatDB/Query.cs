@@ -188,5 +188,14 @@ namespace FatCatDB {
         public async Task PrintAsync() {
             await this.GetExporter().PrintAsync();
         }
+
+        /// <summary>
+        /// Returns a user-friendly text that describes the query plan.
+        /// </summary>
+        public string GetQueryPlan() {
+            var plan = new QueryPlan<T>(this);
+
+            return plan.ToString();
+        }
     }
 }

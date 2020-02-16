@@ -34,6 +34,7 @@ foreach(var item in cursor) {
 - [Creating a database context class](#creating-a-database-context-class)
 - [Inserting and modifying data](#inserting-and-modifying-data)
 - [Queries](#queries)
+- [Query plans](#query-plans)
 - [Atomic operations with the OnUpdate event](#atomic-operations-with-the-onupdate-event)
 - [Making fields unchangeable using OnUpdate](#making-fields-unchangeable-using-onupdate)
 - [Async support](#async-support)
@@ -55,7 +56,7 @@ $ dotnet add package FatCatDB
 
 # Creating a table schema
 
-See the below example. You only have to add annotations to a class and some of its public properties. See an explanation below the example. As you see all annotated columns must have `Nullable` type, which you can either achieve by adding a question mark after non-nullable types, like `long?` or through `Nullable<long>`.
+See the example below. You only have to add annotations to a class and some of its public properties. Please find an explanation below the example. All annotated columns must have `Nullable` type, which you can either achieve by adding a question mark after non-nullable types, like `long?` or through `Nullable<long>`.
 
 ```csharp
 using System;
@@ -242,6 +243,36 @@ Example directive | Description
 `.HintIndex("index_name")` | Hinting a specific index. See the section [Hinting the query planner](#hinting-the-query-planner) for more details.
 
 Note that since the cursor is an enumerable of record objects, you can use `Linq expressions` on them. But if you do that, then the whole result set gets loaded into the memory (if there's enough memory for it). Therefore it's recommended to use Linq only in the presence of a `Limit` directive.
+
+# Query plans
+
+You can generate a user-friendly description of the query plan which would be used for your query. Example:
+
+```csharp
+var db = new DbContext();
+var plan = db.Metrics.Query()
+    .Where(x => x.AccountID, "a11")
+    .OrderByAsc(x => x.Date)
+    .OrderByAsc(x => x.Cost)
+    .FlexFilter(x => x.Impressions > x.Clicks && x.Revenue > 0)
+    .Limit(100, 10)
+    .GetQueryPlan();
+
+Console.Write(plan);
+```
+
+The response:
+
+> - The default index selection mode was selected which gives priority to filtering over sorting.
+> - The selected index is 'account_date'. The steps of the query are:
+>     - Index levels:
+>         - 1. account_id: Select one (exact match)
+>         - 2. date: Sort by (full scan)
+>     - Apply flex filtering.
+>     - Apply the sorting directives inside the packets, which weren't used for an index level:
+>         - cost
+>     - Offset: Index of the first record to return: 10
+>     - Limit: Number of records to return: 100
 
 # Atomic operations with the OnUpdate event
 
@@ -445,11 +476,9 @@ $ dotnet pack -c Release
 
 # TODO
 
-- Implement OS-agnostinc way to overcome file name limitations
 - Add benchmarks
 - Implement tools for data recovery and maintenance
 - Extend the integration tests
 - Implement unit tests after the interfaces are finalized
 - Implement aggregation functionality
 - Implement `left join` and `inner join`
-- Implement the text description of the query plan.

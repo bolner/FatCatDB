@@ -24,9 +24,10 @@ namespace FatCatDB {
     /// Special characters:
     ///     §: Escape character for 2-char codes. Example: §c = | (see below)
     ///     ~: Placeholder for a space
+    ///     °: Placeholder for dot
     ///     ^: "Empty" character, that can be removed. It is inserted before
     ///         upper-case characters to make a difference even on a case-insensitive
-    ///         OS, like Windows or MacOS. It is also added at the beginning, when
+    ///         OS, like Windows or MacOS. It is also added at the end, when
     ///         the value is a forbidden word. (see below)
     /// </summary>
     internal class FilenameEncoder {
@@ -50,7 +51,7 @@ namespace FatCatDB {
         private Dictionary<char, char> charMap = new Dictionary<char, char> {
             {'§', '0'}, {'~', '1'}, {'\0', '2'}, {'\t', '3'}, {'\r', '4'}, {'\n', '5'}, {'\\', '6'},
             {'/', '7'}, {'?', '8'}, {'%', '9'}, {'*', 'a'}, {':', 'b'}, {'|', 'c'}, {'"', 'd'},
-            {'<', 'e'}, {'>', 'f'}, {'.', 'g'}, {'^', 'h'}
+            {'<', 'e'}, {'>', 'f'}, {'°', 'g'}, {'^', 'h'}
         };
 
         /// <summary>
@@ -90,7 +91,8 @@ namespace FatCatDB {
             int length = value.Length;
 
             if (forbidden.Contains(lowerValue)) {
-                sb.Append('^');
+                sb.Append(value).Append('^');
+                return sb.ToString();
             }
 
             for (int i = 0; i < length; i++) {
@@ -111,7 +113,13 @@ namespace FatCatDB {
                     */
                     sb.Append('~');
                 }
-                else {
+                else if (c == '.') {
+                    /*
+                        To have a short encoding for the common
+                        dot character.
+                    */
+                    sb.Append('°');
+                } else {
                     sb.Append(c);
                 }
             }
@@ -142,6 +150,9 @@ namespace FatCatDB {
                 }
                 else if (c == '~') {
                     sb.Append(' ');
+                }
+                else if (c == '°') {
+                    sb.Append('.');
                 }
                 else if (c == '§') {
                     esc = true;
