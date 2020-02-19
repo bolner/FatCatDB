@@ -114,7 +114,7 @@ All properties without annotation are just ignored by FatCatDB, and they won't c
 
 # Creating a database context class
 
-The design of FatCatDB follows [dependency injection](https://en.wikipedia.org/wiki/Dependency_injection) to make implementing unit tests possible. Therefore to use it, you have to instantiate a `datase context` class, which is derived from `DbContextBase`.
+The design of FatCatDB follows [dependency injection](https://en.wikipedia.org/wiki/Dependency_injection) to make implementing unit tests possible. Therefore to use it, you have to instantiate a `database context` class, which is derived from `DbContextBase`.
 
 ```csharp
 internal class DbContext : DbContextBase {

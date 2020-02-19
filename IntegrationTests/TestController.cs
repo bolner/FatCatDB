@@ -86,12 +86,12 @@ namespace FatCatDB.Test {
         [EntryPoint(Name = "query3", Description = "Query by date and account. Use flexfilter. Sort by cost.")]
         public static async Task QueryData3() {
             var db = new DbContext();
-            db.Metrics.Query()
+            await db.Metrics.Query()
                 .Where(x => x.Date, "2020-01-02")
                 .Where(x => x.AccountID, "a11")
                 .FlexFilter(x => x.Revenue > 50)
                 .OrderByDesc(x => x.Cost)
-                .Print();
+                .PrintAsync();
         }
 
         [EntryPoint(Name = "query4", Description = "Filter by date and account.")]
@@ -138,7 +138,7 @@ namespace FatCatDB.Test {
                 transaction.Add(item);
             }
 
-            transaction.Commit();
+            await transaction.CommitAsync();
         }
 
         [EntryPoint(Name = "queryPlan1", Description = "Output the query plan for a complex query")]

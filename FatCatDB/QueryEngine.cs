@@ -112,10 +112,11 @@ namespace FatCatDB
         /// and the results, after it's done.
         /// </summary>
         private class TaskPayload {
-            internal AsyncManualResetEvent TaskCompleted { get; } = new AsyncManualResetEvent(false);
+            private ManualResetEvent TaskCompleted { get; } = new ManualResetEvent(false);
             internal Packet<T> Packet { get; }
             private QueryPlan<T> queryPlan;
-            internal Exception Exception = null;
+            private Exception exception = null;
+            internal Exception Exception { get { return this.exception; } }
             private bool isAsync;
             private Task task;
             
@@ -139,7 +140,7 @@ namespace FatCatDB
 
                     this.Packet.DeserializeDecompress(this.queryPlan);
                 } catch (Exception ex) {
-                    this.Exception = ex;
+                    this.exception = ex;
                 }
 
                 this.TaskCompleted.Set();
@@ -153,10 +154,24 @@ namespace FatCatDB
 
                     this.Packet.DeserializeDecompress(this.queryPlan);
                 } catch (Exception ex) {
-                    this.Exception = ex;
+                    this.exception = ex;
                 }
 
                 this.TaskCompleted.Set();
+            }
+
+            /// <summary>
+            /// Synchronous wait for completion
+            /// </summary>
+            internal void Wait() {
+                this.TaskCompleted.WaitOne();
+            }
+
+            /// <summary>
+            /// Async wait for completion
+            /// </summary>
+            internal async Task WaitAsync() {
+                await this.task;
             }
         }
 
@@ -172,8 +187,6 @@ namespace FatCatDB
             this.indexFilters = queryPlan.Query.IndexFilters;
             this.limit = this.queryPlan.Query.QueryLimit;
             this.offset = this.queryPlan.Query.Offset;
-
-            ThreadPool.SetMaxThreads(this.paralellism + 1, this.paralellism + 1);
         }
 
         /// <summary>
@@ -210,7 +223,7 @@ namespace FatCatDB
                     );
 
                     /*
-                        Move that execution path to the next item, to continue from
+                        Move the execution path to the next item, to continue from
                         there at the next call.
                         If there are none, then set the "query ended" property.
                     */
@@ -331,7 +344,7 @@ namespace FatCatDB
                     return next;
                 }
 
-                this.CreateThreads();
+                this.CreateThreads(isAsync: false);
 
                 if (this.payloads.Count < 1) {
                     this.activeRecords = null;
@@ -340,12 +353,12 @@ namespace FatCatDB
                 }
 
                 var payload = this.payloads[this.TaskSequenceFirst];
-                payload.TaskCompleted.Wait();
+                payload.Wait();
 
                 if (payload.Exception != null) {
                     // Wait for all before throwing the exception
                     foreach(var item in this.payloads) {
-                        payload.TaskCompleted.Wait();
+                        payload.Wait();
                     }
 
                     throw payload.Exception;
@@ -377,7 +390,7 @@ namespace FatCatDB
                     return next;
                 }
 
-                this.CreateThreads();
+                this.CreateThreads(isAsync: true);
 
                 if (this.payloads.Count < 1) {
                     this.activeRecords = null;
@@ -386,12 +399,12 @@ namespace FatCatDB
                 }
 
                 var payload = this.payloads[this.TaskSequenceFirst];
-                await payload.TaskCompleted.WaitAsync();
+                await payload.WaitAsync();
 
                 if (payload.Exception != null) {
                     // Wait for all before throwing the exception
                     foreach(var item in this.payloads) {
-                        await payload.TaskCompleted.WaitAsync();
+                        await payload.WaitAsync();
                     }
 
                     throw payload.Exception;
@@ -408,7 +421,7 @@ namespace FatCatDB
         /// Creates new worker threads until the required
         /// amount is reached.
         /// </summary>
-        private void CreateThreads() {
+        private void CreateThreads(bool isAsync) {
             if (noMorePackets) {
                 return;
             }
@@ -419,7 +432,7 @@ namespace FatCatDB
                     return;
                 }
 
-                var payload = new TaskPayload(packet, this.queryPlan, false);
+                var payload = new TaskPayload(packet, this.queryPlan, isAsync);
                 this.payloads[this.TaskSequenceNext] = payload;
                 this.TaskSequenceNext++;
             }

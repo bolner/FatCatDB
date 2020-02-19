@@ -14,6 +14,7 @@
     limitations under the License.
 */
 using System;
+using System.Threading;
 
 namespace FatCatDB {
     /// <summary>
@@ -150,6 +151,17 @@ namespace FatCatDB {
             QueryParallelism = configurator.GetQueryParallelism();
             DatabasePath = configurator.GetDatabasePath();
             IsDurabilityEnabled = configurator.IsDurabilityEnabled();
+
+            /*
+                Change the thread pool size if not changed yet
+            */
+            int paralellism = TransactionParallelism + QueryParallelism;
+            int workerThreads, completionPortThreads;
+            
+            ThreadPool.GetMaxThreads(out workerThreads, out completionPortThreads);
+            if (workerThreads != paralellism || completionPortThreads != paralellism) {
+                ThreadPool.SetMaxThreads(paralellism, paralellism);
+            }
         }
     }
 }

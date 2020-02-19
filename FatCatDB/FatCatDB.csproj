@@ -6,7 +6,7 @@
         <GenerateDocumentationFile>true</GenerateDocumentationFile>
 
         <PackageId>FatCatDB</PackageId>
-        <Version>1.0.3</Version>
+        <Version>1.0.4</Version>
         <Authors>Tamas Bolner</Authors>
         <Title>Zero configuration, high performance database library for ETL workflows</Title>
         <Description>Zero configuration, high performance database library for ETL workflows</Description>
