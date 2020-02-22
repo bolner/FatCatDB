@@ -80,7 +80,7 @@ namespace FatCatDB {
         /// <summary>
         /// Returns all converters, indexed by source|destination strings.
         /// </summary>
-        public Dictionary<string, Func<object, object>> GetConverters() {
+        internal Dictionary<string, Func<object, object>> GetConverters() {
             return new Dictionary<string, Func<object, object>>(this.converters);
         }
     }
@@ -96,7 +96,7 @@ namespace FatCatDB {
         /// Constructor
         /// </summary>
         /// <param name="typeConverterSetup">Source of the settings</param>
-        public TypeConverter(TypeConverterSetup typeConverterSetup) {
+        internal TypeConverter(TypeConverterSetup typeConverterSetup) {
             /*
                 Copy the settings
             */
@@ -110,7 +110,7 @@ namespace FatCatDB {
         /// <param name="destTypeName">The name of the destination typoe</param>
         /// <param name="sourceValue">The value to convert</param>
         /// <returns>The value converted to a new type</returns>
-        public object ConvertType(string sourceTypeName, string destTypeName, object sourceValue) {
+        internal object ConvertType(string sourceTypeName, string destTypeName, object sourceValue) {
             Func<object, object> func = null;
             converters.TryGetValue($"{sourceTypeName}|{destTypeName}", out func);
 
@@ -126,7 +126,7 @@ namespace FatCatDB {
         /// Returns a lambda function for a specific type conversion.
         /// This lambda function had to be registered already.
         /// </summary>
-        public Func<object, object> GetConverter(string sourceTypeName, string destTypeName) {
+        internal Func<object, object> GetConverter(string sourceTypeName, string destTypeName) {
             Func<object, object> func = null;
             converters.TryGetValue($"{sourceTypeName}|{destTypeName}", out func);
 

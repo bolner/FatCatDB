@@ -423,7 +423,7 @@ You can also overwrite the built-in converters with your own ones. Just use the 
 
 The query planner tries to select the best index to execute a query. It has two modes of operation:
 
-- `Filtering priority`: This is the default. Selects the index by first looking at the `Where` statements and just then at the sorting directives. This mode gives the best performance for the queries, but it can happen that sorting is not possible (considering your directives and the indexed fields). In that case you get an error message.
+- `Filtering priority`: This is the default. Selects the index by first looking at the `Where` statements and just then at the sorting directives. This mode gives the best performance if only a small fraction of all records are queried, but it can happen that sorting is not possible (considering your directives and the indexed fields). In that case you get an error message.
 - `Sorting priority`: Let's say for example that you have 10 GBytes of data in a table, and you want to query the 95% of it with a complex sorting on multiple fields. In this case `sorting priority` is the best way to go (performance wise). Use it only when you need the majority of records returned, and you also have sorting directives in your query, which matches an index you defined.
 
 Example:
@@ -484,3 +484,8 @@ $ dotnet pack -c Release
 - Implement unit tests after the interfaces are finalized
 - Implement aggregation functionality
 - Implement `left join` and `inner join`
+- Implement query.Delete(), table.Truncate() and db.Drop()
+- Delete packets which became empty after removal of records.
+- Use local thread pool instead of global
+- Instead of "Limit/Offset" use "Limit/After" where "After" is the path
+  of the last record, returned from a previous limited request. (for paging)
