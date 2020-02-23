@@ -312,17 +312,17 @@ namespace FatCatDB {
                 }
             }
 
-            if (Query.Offset > 0) {
+            /*if (Query.Offset > 0) {
                 sb.AppendLine($"    - Offset: Index of the first record to return: {Query.Offset}");
-            }
+            }*/
 
             if (Query.QueryLimit > 0) {
                 sb.AppendLine($"    - Limit: Number of records to return: {Query.QueryLimit}");
             }
 
-            if (Query.Offset == 0 && Query.QueryLimit == 0) {
+            /*if (Query.Offset == 0 && Query.QueryLimit == 0) {
                 sb.AppendLine($"    - Return the complete result.");
-            }
+            }*/
 
             return sb.ToString();
         }

@@ -32,7 +32,7 @@ namespace FatCatDB
         private int paralellism;
         private bool noMorePackets = false;
         private long limit;
-        private long offset;
+        private Bookmark bookmark;
         private FilenameEncoder filenameEncoder = new FilenameEncoder();
 
         /// <summary>
@@ -86,7 +86,20 @@ namespace FatCatDB
             this.sorting = queryPlan.Query.Sorting;
             this.indexFilters = queryPlan.Query.IndexFilters;
             this.limit = this.queryPlan.Query.QueryLimit;
-            this.offset = this.queryPlan.Query.Offset;
+            this.bookmark = this.queryPlan.Query.Bookmark;
+
+            /*
+                Initialize the state of the execution path
+                from the bookmark.
+            */
+            if (bookmark != null) {
+                // Problem: the query engine doesn't know about
+                //      its place in a join context.
+
+                // Hmmm, store the table name too in the bookmark?
+
+                // Then: find the relevant entry
+            }
         }
 
         /// <summary>
@@ -181,7 +194,7 @@ namespace FatCatDB
 
         /// <summary>
         /// Moves through the records in the currently opened
-        /// packet. Applies limit and offset.
+        /// packet. Applies limit.
         /// </summary>
         /// <param name="isQueryEnded">True = The limit was reached, False = Otherwise</param>
         /// <returns>The next item or null when we finished processing the current packet.</returns>
@@ -191,26 +204,10 @@ namespace FatCatDB
             if (this.activeRecords != null) {
                 if (this.activeRecords.Length > this.activeRecordIndex) {
                     if (this.limit > 0) {
-                        if (this.absoluteRecordIndex >= this.offset + this.limit) {
+                        if (this.absoluteRecordIndex >= this.limit) {
                             // Reached the limit
                             isQueryEnded = true;
                             return null;
-                        }
-                    }
-
-                    if (this.absoluteRecordIndex < this.offset) {
-                        // Both are "number of items"
-                        long remainsFromPacket = this.activeRecords.Length - this.activeRecordIndex - 1;
-                        long remainsFromOffset = this.absoluteRecordIndex - this.offset;
-
-                        if (remainsFromPacket <= remainsFromOffset) {
-                            // Jump whole packet
-                            this.absoluteRecordIndex += remainsFromPacket;
-                            return null;
-                        } else {
-                            // Jump inside the packet
-                            this.absoluteRecordIndex += remainsFromOffset;
-                            this.activeRecordIndex += remainsFromOffset;
                         }
                     }
 
@@ -241,6 +238,7 @@ namespace FatCatDB
                 }
 
                 if (next != null) {
+                    this.lastRecordFetched = next;
                     return next;
                 }
 
@@ -287,6 +285,7 @@ namespace FatCatDB
                 }
 
                 if (next != null) {
+                    this.lastRecordFetched = next;
                     return next;
                 }
 
@@ -422,6 +421,14 @@ namespace FatCatDB
             }
 
             return files;
+        }
+
+        /// <summary>
+        /// Returns the last record fetched by the query engine.
+        /// The response can be used for creating a bookmark.
+        /// </summary>
+        internal T GetLastRecordFetched() {
+            return this.lastRecordFetched;
         }
     }
 }

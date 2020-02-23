@@ -149,7 +149,7 @@ namespace FatCatDB.Test {
                 .OrderByAsc(x => x.Date)
                 .OrderByAsc(x => x.Cost)
                 .FlexFilter(x => x.Impressions > x.Clicks && x.Revenue > 0)
-                .Limit(100, 10)
+                .Limit(100)
                 .GetQueryPlan();
             
             Console.Write(plan);

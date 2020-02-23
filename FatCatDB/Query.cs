@@ -28,8 +28,8 @@ namespace FatCatDB {
         internal Table<T> Table { get; }
         internal Dictionary<int, string> IndexFilters { get; } = new Dictionary<int, string>();
         internal List<Func<T, bool>> FlexFilters { get; } = new List<Func<T, bool>>();
-        private Int64 offset = 0;
-        internal Int64 Offset { get { return offset; } }
+        private Bookmark bookmark = null;
+        internal Bookmark Bookmark { get { return bookmark; } }
         private Int64 queryLimit = 0;
         internal Int64 QueryLimit { get { return queryLimit; } }
         internal List<Tuple<int, SortingDirection>> Sorting { get; } = new List<Tuple<int, SortingDirection>>();
@@ -93,15 +93,25 @@ namespace FatCatDB {
         }
 
         /// <summary>
-        /// Set limit and offset for the query.
-        /// Limit is disabled by default (limit = 0)
+        /// Limit how many records to return for the
+        /// query. Limit is disabled by default (limit = 0)
+        /// Instead of an 'offset' FatCatDB uses bookmarks.
+        /// See: Query.AfterBookmark(...)
         /// </summary>
         /// <param name="limit">How many items to return</param>
-        /// <param name="offset">At which item to start. 0 = first</param>
-        public Query<T> Limit(Int64 limit, Int64 offset = 0) {
+        public Query<T> Limit(Int64 limit) {
             this.queryLimit = limit;
-            this.offset = offset;
 
+            return this;
+        }
+
+        /// <summary>
+        /// Continue a previous limited query after a given record.
+        /// This functionality is similar to the "offset" of SQL.
+        /// </summary>
+        /// <param name="bookmark">A bookmark that was returned from a previous limited query.</param>
+        public Query<T> AfterBookmark(string bookmark) {
+            this.bookmark = new Bookmark(bookmark);
             return this;
         }
 
