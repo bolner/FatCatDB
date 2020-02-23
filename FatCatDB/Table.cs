@@ -377,8 +377,7 @@ namespace FatCatDB {
         }
 
         /// <summary>
-        /// Returns the values of the primary key fields concatenated
-        /// as a single string value.
+        /// Returns the values of the index fields.
         /// </summary>
         internal List<string> GetIndexPath(TableIndex<T> index, object record) {
             var path = new List<string>();
@@ -386,6 +385,39 @@ namespace FatCatDB {
             foreach(int propertyIndex in index.PropertyIndices) {
                 path.Add(
                     ConvertValueToString(propertyIndex, Properties[propertyIndex].GetValue(record))
+                );
+            }
+
+            return path;
+        }
+
+        /// <summary>
+        /// Returns the values of the index fields.
+        /// </summary>
+        internal Dictionary<string, string> GetIndexPathAssoc(TableIndex<T> index, object record) {
+            var path = new Dictionary<string, string>();
+
+            foreach(int propertyIndex in index.PropertyIndices) {
+                path[ColumnNames[propertyIndex]] = ConvertValueToString(
+                    propertyIndex,
+                    Properties[propertyIndex].GetValue(record)
+                );
+            }
+
+            return path;
+        }
+
+        /// <summary>
+        /// Returns key/value pairs that fully identify a record in respect to the
+        /// selected index and its unique key.
+        /// </summary>
+        internal Dictionary<string, string> GetFullRecordPath(TableIndex<T> index, object record) {
+            var path = this.GetIndexPathAssoc(index, record);
+
+            foreach(int propertyIndex in uniquePropertyIndices) {
+                path[ColumnNames[propertyIndex]] = ConvertValueToString(
+                    propertyIndex,
+                    Properties[propertyIndex].GetValue(record)
                 );
             }
 

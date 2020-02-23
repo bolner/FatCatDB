@@ -16,10 +16,8 @@
 using System;
 using System.IO;
 using System.Linq;
-using System.Threading;
 using System.Threading.Tasks;
 using System.Collections.Generic;
-using Nito.AsyncEx;
 
 namespace FatCatDB
 {
@@ -27,15 +25,21 @@ namespace FatCatDB
     /// Executes a query
     /// </summary>
     /// <typeparam name="T">An annotated class of a database table record</typeparam>
-    internal class QueryEngine<T> where T: class, new() {
+    internal partial class QueryEngine<T> where T: class, new() {
         private Table<T> table;
         private QueryPlan<T> queryPlan;
-        private Stack<ExecutionItem> executionPath = new Stack<ExecutionItem>();
+        private Stack<IndexLevel> executionPath = new Stack<IndexLevel>();
         private int paralellism;
         private bool noMorePackets = false;
         private long limit;
         private long offset;
         private FilenameEncoder filenameEncoder = new FilenameEncoder();
+
+        /// <summary>
+        /// This keeps track of the last record fetched,
+        /// to be used in a bookmark.
+        /// </summary>
+        private T lastRecordFetched = null;
 
         /// <summary>
         /// This will be the next item to serve to the user.
@@ -52,7 +56,7 @@ namespace FatCatDB
         /// </summary>
         /// <typeparam name="long">Sequence number</typeparam>
         /// <typeparam name="TaskPayload">A thread works on it, and stores its results in it.</typeparam>
-        private Dictionary<long, TaskPayload> payloads = new Dictionary<long, TaskPayload>();
+        private Dictionary<long, PacketLoaderTask> payloads = new Dictionary<long, PacketLoaderTask>();
 
         /// <summary>
         /// These are the records of the packet that
@@ -70,110 +74,6 @@ namespace FatCatDB
         private List<Func<T, bool>> filterExpressions;
         private Dictionary<int, string> indexFilters;
         private List<Tuple<int, SortingDirection>> sorting;
-
-        /// <summary>
-        /// A level in the execution stack.
-        /// List of files in a folder, that can
-        /// be iterated on.
-        /// </summary>
-        private class ExecutionItem {
-            private Int64 position = 0;
-            internal string[] Files { get; } = null;
-
-            internal ExecutionItem(string[] files) {
-                this.Files = files;
-            }
-
-            internal ExecutionItem(string file) {
-                this.Files = new string[] { file };
-            }
-
-            internal bool HasMore {
-                get {
-                    return position < Files.Length - 1;
-                }
-            }
-
-            internal string Next() {
-                if (position < Files.Length - 1) {
-                    position++;
-                }
-                
-                return Files[position];
-            }
-
-            internal string Current() {
-                return Files[position];
-            }
-        }
-
-        /// <summary>
-        /// Contains both the info required for starting the work,
-        /// and the results, after it's done.
-        /// </summary>
-        private class TaskPayload {
-            private ManualResetEvent TaskCompleted { get; } = new ManualResetEvent(false);
-            internal Packet<T> Packet { get; }
-            private QueryPlan<T> queryPlan;
-            private Exception exception = null;
-            internal Exception Exception { get { return this.exception; } }
-            private bool isAsync;
-            private Task task;
-            
-            internal TaskPayload(Packet<T> packet, QueryPlan<T> queryPlan, bool isAsync) {
-                this.Packet = packet;
-                this.queryPlan = queryPlan;
-                this.isAsync = isAsync;
-
-                if (isAsync) {
-                    this.task = WorkerAsync();
-                } else {
-                    ThreadPool.QueueUserWorkItem(this.WorkerCallback);
-                }
-            }
-
-            private void WorkerCallback(object state) {
-                try {
-                    using (Locking.GetMutex(this.Packet.FullPath).Lock()) {
-                        this.Packet.Load();
-                    }
-
-                    this.Packet.DeserializeDecompress(this.queryPlan);
-                } catch (Exception ex) {
-                    this.exception = ex;
-                }
-
-                this.TaskCompleted.Set();
-            }
-
-            private async Task WorkerAsync() {
-                try {
-                    using (Locking.GetMutex(this.Packet.FullPath).Lock()) {
-                        await this.Packet.LoadAsync();
-                    }
-
-                    this.Packet.DeserializeDecompress(this.queryPlan);
-                } catch (Exception ex) {
-                    this.exception = ex;
-                }
-
-                this.TaskCompleted.Set();
-            }
-
-            /// <summary>
-            /// Synchronous wait for completion
-            /// </summary>
-            internal void Wait() {
-                this.TaskCompleted.WaitOne();
-            }
-
-            /// <summary>
-            /// Async wait for completion
-            /// </summary>
-            internal async Task WaitAsync() {
-                await this.task;
-            }
-        }
 
         /// <summary>
         /// Constructor
@@ -242,7 +142,7 @@ namespace FatCatDB
                     bool isLastLevel = executionPath.Count == queryPlan.BestIndex.PropertyIndices.Count - 1;
 
                     if (this.indexFilters.ContainsKey(propIndex)) {
-                        executionPath.Push(new ExecutionItem(this.indexFilters[propIndex]));
+                        executionPath.Push(new IndexLevel(this.indexFilters[propIndex]));
                     }
                     else {
                         string currentPath = Path.Join(
@@ -270,7 +170,7 @@ namespace FatCatDB
                             continue;
                         }
 
-                        executionPath.Push(new ExecutionItem(files));
+                        executionPath.Push(new IndexLevel(files));
                     }
                 }
             } while (executionPath.Count > 0);
@@ -432,7 +332,7 @@ namespace FatCatDB
                     return;
                 }
 
-                var payload = new TaskPayload(packet, this.queryPlan, isAsync);
+                var payload = new PacketLoaderTask(packet, this.queryPlan, isAsync);
                 this.payloads[this.TaskSequenceNext] = payload;
                 this.TaskSequenceNext++;
             }
