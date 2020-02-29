@@ -32,8 +32,9 @@ namespace FatCatDB
         private int paralellism;
         private bool noMorePackets = false;
         private long limit;
-        private Bookmark bookmark;
+        private Bookmark.BookmarkFragment bookmarkFragment;
         private FilenameEncoder filenameEncoder = new FilenameEncoder();
+        private string pathPrefix;
 
         /// <summary>
         /// This keeps track of the last record fetched,
@@ -42,21 +43,9 @@ namespace FatCatDB
         private T lastRecordFetched = null;
 
         /// <summary>
-        /// This will be the next item to serve to the user.
+        /// The active payloads. FILO queue.
         /// </summary>
-        private long TaskSequenceFirst = 0;
-
-        /// <summary>
-        /// The next task gets "TaskSequenceMax + 1" as ID
-        /// </summary>
-        private long TaskSequenceNext = 0;
-
-        /// <summary>
-        /// The active payloads. The old ones get removed.
-        /// </summary>
-        /// <typeparam name="long">Sequence number</typeparam>
-        /// <typeparam name="TaskPayload">A thread works on it, and stores its results in it.</typeparam>
-        private Dictionary<long, PacketLoaderTask> payloads = new Dictionary<long, PacketLoaderTask>();
+        private Queue<PacketLoaderTask> payloads = new Queue<PacketLoaderTask>();
 
         /// <summary>
         /// These are the records of the packet that
@@ -86,32 +75,7 @@ namespace FatCatDB
             this.sorting = queryPlan.Query.Sorting;
             this.indexFilters = queryPlan.Query.IndexFilters;
             this.limit = this.queryPlan.Query.QueryLimit;
-            this.bookmark = this.queryPlan.Query.Bookmark;
-
-            /*
-                Initialize the state of the execution path
-                from the bookmark.
-            */
-            if (bookmark != null) {
-                // Problem: the query engine doesn't know about
-                //      its place in a join context.
-
-                // Hmmm, store the table name too in the bookmark?
-
-                // Then: find the relevant entry
-            }
-        }
-
-        /// <summary>
-        /// Returns the next packet or null if the query ended.
-        /// It neither loads nor deserializes the packet.
-        /// </summary>
-        internal Packet<T> FetchNextPacket() {
-            if (this.noMorePackets) {
-                return null;
-            }
-
-            string pathPrefix;
+            var bookmark = this.queryPlan.Query.Bookmark;
 
             if (this.table.DbContext.Configuration.DatabasePath != null) {
                 pathPrefix = Path.Join(
@@ -124,7 +88,38 @@ namespace FatCatDB
                     table.Annotation.Name, queryPlan.BestIndex.Name
                 );
             }
-            
+
+            /*
+                Check if the bookmark contains a fragment for this engine.
+            */
+            if (bookmark != null) {
+                this.bookmarkFragment = null;
+
+                foreach(var fragment in bookmark.Fragments) {
+                    if (fragment.TableName == this.table.Annotation.Name
+                        && fragment.IndexName == this.queryPlan.BestIndex.Name) {
+                        
+                        this.bookmarkFragment = fragment;
+                        break;
+                    }
+                }
+
+                if (this.bookmarkFragment == null) {
+                    throw new FatCatException($"Invalid bookmark. Please always use the bookmarks in the same "
+                        + "queries they were created for.");
+                }
+            }
+        }
+
+        /// <summary>
+        /// Returns the next packet or null if the query ended.
+        /// It neither loads nor deserializes the packet.
+        /// </summary>
+        internal Packet<T> FetchNextPacket() {
+            if (this.noMorePackets) {
+                return null;
+            }
+
             do {
                 if (executionPath.Count >= queryPlan.BestIndex.PropertyIndices.Count) {
                     /*
@@ -153,7 +148,18 @@ namespace FatCatDB
                     */
                     int propIndex = queryPlan.BestIndex.PropertyIndices[executionPath.Count];
                     bool isLastLevel = executionPath.Count == queryPlan.BestIndex.PropertyIndices.Count - 1;
+                    IComparable afterValue = null;
 
+                    if (this.bookmarkFragment != null) {
+                        string columnName = this.table.ColumnNames[propIndex];
+                        if (!this.bookmarkFragment.Path.ContainsKey(columnName)) {
+                            throw new FatCatException($"Invalid bookmark. Please always use the bookmarks in the same "
+                                + "queries they were created for.");
+                        }
+
+                        afterValue = table.ConvertStringToValue(propIndex, this.bookmarkFragment.Path[columnName]);
+                    }
+                    
                     if (this.indexFilters.ContainsKey(propIndex)) {
                         executionPath.Push(new IndexLevel(this.indexFilters[propIndex]));
                     }
@@ -168,13 +174,13 @@ namespace FatCatDB
                         if (queryPlan.SortingAssoc.ContainsKey(propIndex)) {
                             if (queryPlan.SortingAssoc[propIndex] == SortingDirection.Ascending) {
                                 // Ascending
-                                files = this.ListFilesInFolder(currentPath, false, isLastLevel, propIndex);
+                                files = this.ListFilesInFolder(currentPath, true, isLastLevel, propIndex, afterValue);
                             } else {
                                 // Descending
-                                files = this.ListFilesInFolder(currentPath, false, isLastLevel, propIndex);
+                                files = this.ListFilesInFolder(currentPath, false, isLastLevel, propIndex, afterValue);
                             }
                         } else {
-                            files = this.ListFilesInFolder(currentPath, true, isLastLevel, propIndex);
+                            files = this.ListFilesInFolder(currentPath, true, isLastLevel, propIndex, afterValue);
                         }
 
                         if (files.Length < 1) {
@@ -250,7 +256,7 @@ namespace FatCatDB
                     return null;
                 }
 
-                var payload = this.payloads[this.TaskSequenceFirst];
+                var payload = this.payloads.Dequeue();
                 payload.Wait();
 
                 if (payload.Exception != null) {
@@ -262,8 +268,6 @@ namespace FatCatDB
                     throw payload.Exception;
                 }
 
-                this.payloads.Remove(this.TaskSequenceFirst);
-                this.TaskSequenceFirst++;
                 this.activeRecords = payload.Packet.GetRecords();
                 this.activeRecordIndex = 0;
             } while (true);
@@ -297,7 +301,7 @@ namespace FatCatDB
                     return null;
                 }
 
-                var payload = this.payloads[this.TaskSequenceFirst];
+                var payload = this.payloads.Dequeue();
                 await payload.WaitAsync();
 
                 if (payload.Exception != null) {
@@ -309,8 +313,6 @@ namespace FatCatDB
                     throw payload.Exception;
                 }
 
-                this.payloads.Remove(this.TaskSequenceFirst);
-                this.TaskSequenceFirst++;
                 this.activeRecords = payload.Packet.GetRecords();
                 this.activeRecordIndex = 0;
             } while (true);
@@ -332,8 +334,7 @@ namespace FatCatDB
                 }
 
                 var payload = new PacketLoaderTask(packet, this.queryPlan, isAsync);
-                this.payloads[this.TaskSequenceNext] = payload;
-                this.TaskSequenceNext++;
+                this.payloads.Enqueue(payload);
             }
         }
 
@@ -361,66 +362,49 @@ namespace FatCatDB
         /// <param name="asc">Sort the result ascending=true or descending=false</param>
         /// <param name="isLastLevel">On the last level it lists files, otherwise directories</param>
         /// <param name="propertyIndex">Identifies the column and its type</param>
-        private string[] ListFilesInFolder(string folder, bool asc, bool isLastLevel, int propertyIndex) {
-            string[] files;
+        /// <param name="afterValue">If not NULL, then return values which come after this value.</param>
+        private string[] ListFilesInFolder(string folder, bool asc, bool isLastLevel, int propertyIndex, IComparable afterValue) {
+            IEnumerable<Tuple<IComparable, string>> files;
+            IOrderedEnumerable<Tuple<IComparable, string>> orderedFiles;
 
             try {
                 if (isLastLevel) {
-                    /*
-                        Files
-                    */
-                    if (asc) {
-                        files = Directory.EnumerateFiles(folder, "*.tsv.gz", SearchOption.TopDirectoryOnly)
-                            .Select(x => {
-                                var fileBase = Path.GetFileName(x).Replace(".tsv.gz", "");
-                                var value = table.ConvertStringToValue(propertyIndex, filenameEncoder.Decode(fileBase));
-                                return Tuple.Create(value, fileBase);
-                            })
-                            .OrderByDescending(x => x.Item1)
-                            .Select(x => x.Item2)
-                            .ToArray();
-                    } else {
-                        files = Directory.EnumerateFiles(folder, "*.tsv.gz", SearchOption.TopDirectoryOnly)
-                            .Select(x => {
-                                var fileBase = Path.GetFileName(x).Replace(".tsv.gz", "");
-                                var value = table.ConvertStringToValue(propertyIndex, filenameEncoder.Decode(fileBase));
-                                return Tuple.Create(value, fileBase);
-                            })
-                            .OrderBy(x => x.Item1)
-                            .Select(x => x.Item2)
-                            .ToArray();
-                    }
+                    files = Directory.EnumerateFiles(folder, "*.tsv.gz", SearchOption.TopDirectoryOnly)
+                        .Select(x => {
+                            var fileBase = Path.GetFileName(x).Replace(".tsv.gz", "");
+                            var value = table.ConvertStringToValue(propertyIndex, filenameEncoder.Decode(fileBase));
+                            return Tuple.Create(value, fileBase);
+                        });
                 } else {
                     /*
                         Directories
                     */
-                    if (asc) {
-                        files = Directory.EnumerateDirectories(folder, "*", SearchOption.TopDirectoryOnly)
-                            .Select(x => {
-                                var fileBase = Path.GetFileName(x);
-                                var value = table.ConvertStringToValue(propertyIndex, filenameEncoder.Decode(fileBase));
-                                return Tuple.Create(value, fileBase);
-                            })
-                            .OrderByDescending(x => x.Item1)
-                            .Select(x => x.Item2)
-                            .ToArray();
-                    } else {
-                        files = Directory.EnumerateDirectories(folder, "*", SearchOption.TopDirectoryOnly)
-                            .Select(x => {
-                                var fileBase = Path.GetFileName(x);
-                                var value = table.ConvertStringToValue(propertyIndex, filenameEncoder.Decode(fileBase));
-                                return Tuple.Create(value, fileBase);
-                            })
-                            .OrderBy(x => x.Item1)
-                            .Select(x => x.Item2)
-                            .ToArray();
-                    }
+                    files = Directory.EnumerateDirectories(folder, "*", SearchOption.TopDirectoryOnly)
+                        .Select(x => {
+                            var fileBase = Path.GetFileName(x);
+                            var value = table.ConvertStringToValue(propertyIndex, filenameEncoder.Decode(fileBase));
+                            return Tuple.Create(value, fileBase);
+                        });
                 }
             } catch (Exception) {
-                files = new string[] { };
+                return new string[] { };
             }
 
-            return files;
+            if (afterValue != null) {
+                if (asc) {
+                    files = files.Where(x => x.Item1.CompareTo(afterValue) <= 0);
+                } else {
+                    files = files.Where(x => x.Item1.CompareTo(afterValue) >= 0);
+                }
+            }
+
+            if (asc) {
+                orderedFiles = files.OrderByDescending(x => x.Item1);
+            } else {
+                orderedFiles = files.OrderBy(x => x.Item1);
+            }
+
+            return orderedFiles.Select(x => x.Item2).ToArray();
         }
 
         /// <summary>

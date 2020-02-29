@@ -56,7 +56,7 @@ $ dotnet add package FatCatDB
 
 # Creating a table schema
 
-See the example below. You only have to add annotations to a class and some of its public properties. Please find an explanation below the example. All annotated columns must have `Nullable` type, which you can either achieve by adding a question mark after non-nullable types, like `long?` or through `Nullable<long>`.
+See the example below. You only have to add annotations to a class and some of its public properties. Please find an explanation below the example. All annotated columns must have `Nullable` type, which you can either achieve by adding a question mark after non-nullable types, like `long?` or through `Nullable<long>`. They also need to be `comparable`, which means that they have to implement the `IComparable` interface.
 
 ```csharp
 using System;
@@ -151,7 +151,7 @@ var db = new DbContext();
 var transaction = db.YourTable.NewTransaction();
 ```
 
-Adding and updating records are both done using the same `Add` method:
+Adding and updating records are both done using the same `Add` method. By default FatCatDB is always doing an `upsert`. You can change this behaviour with [OnUpdate event handlers](#atomic-operations-with-the-onupdate-event).
 
 ```csharp
 var record = new MyRecord();
@@ -230,15 +230,16 @@ if (person != null) {
 }
 ```
 
-Please find below a complete list of the query directives:
+Please find below a complete list of query directives:
 
 Example directive | Description
 --- | ---
-`.Where(x => x.Date, "2020-02-09")` | Filtering on a specific value (exact match). This kind of filtering is fast, because it uses the indices.
+`.Where(x => x.Date, "2020-02-09")` | Filtering on a specific value (exact match). This kind of filtering is fast, because it uses the indices. You can use `Where` on both a value of the original type of the column, or on the string representation of it. (See [Adding new types](#adding-new-types) about the string conversion.)
 `.Where(x => x.Date, new LocalDate(2020, 2, 9))` | You can also use the original type of the column in `Where` filters. This also uses the indices.
 `.FlexFilter(x => x.Cost > x.Revenue && x.Impressions > 10)` | In flex filters, you can specify an arbitrary expression over the columns. This filtering is slow as it doesn't use the indices.
 `.OrderByAsc(x => x.Budget)` `.OrderByDesc(x => x.Budget)` | Ordering by a column in ascending or descending way. You can append multiple sorting directives to sort over multiple fields, in which case the order of the directives is important.
-`.Limit(limit, offset)` | The limit value specifies the number of items to return. The offset is the 0-based index of the first item to return. E.g. `.Limit(10, 20)` means to return 10 items, starting from 21th. The offset value is optional, you can do `.Limit(100)` for example.
+`.Limit(limit)` | The limit value specifies the maximum number of items to return. For the `offset` see the next line.
+`.AfterBookmark(bookmark)` | Instead of an `offset` value, FatCatDB uses strings called `Bookmarks`. They provide a much more efficient way to continue a query than offset values.
 `.HintIndexPriority( IndexPriority.Sorting )` | Hinting an index selection algorithm. See the section [Hinting the query planner](#hinting-the-query-planner) for more details.
 `.HintIndex("index_name")` | Hinting a specific index. See the section [Hinting the query planner](#hinting-the-query-planner) for more details.
 
@@ -280,7 +281,7 @@ The response:
 
 During the update of a records, there's a narrow window of time, when both the old and the new versions of a record are available in memory, and there's an exclusive lock on the packet of the records. You can exploit this opportunity by the `OnUpdate` event.
 
-You can specify a `lambda function` as an update event handler on a transaction. The return value of it will be the new version of the record to be stored.
+You can specify a `lambda function` as an update event handler on a transaction. It will be called during the `commit` phase, when a record you pushed has the same unique key in a packet as an existing one. (So it would need to be updated.) The return value of it is the new version of the record to be stored.
 
 ```csharp
 var db = new DbContext();
@@ -298,8 +299,10 @@ transaction.OnUpdate((oldRecord, newRecord) => {
     return newRecord;
 });
 
+// The contents of "records" is probably imported from an external server.
 foreach(var record in records) {
     ...
+    // These are the "new records"
     transaction.Add(record);
 }
 
@@ -314,13 +317,17 @@ The return value can be of 4 kinds:
 - You can return `null` in order to avoid any modifications done to the old record. (The new one will just be ignored and not stored anywhere.)
 - You can create a completely new record of the same type and return it.
 
+But you can also throw an exception to stop the `commit` process. (Packets that were saved already, will remain that way.)
+
 Two things to note:
 - Changing the fields of the `unique key` is safe. You won't have any duplicate records, no worries.
 - BUT, changing fields which are used in any of the indices defined will result in an exception. It isn't allowed to change the indexed fields inside an `OnUpdate` event, because then the records would need to be relocated into another packet, which cannot be done in an efficient way. (You can do that in application code with the combination of a `remove` and an `add` on a transaction.)
 
+If you don't provide an OnUpdate event handler, then the default way of operation is to replace the old record with the new one. As by default FatCatDB always does an `upsert` for conflicting unique keys, but you can change this behavior with an `OnUpdate` event handler.
+
 # Making fields unchangeable using OnUpdate
 
-In the previous section we described how to use the OnUpdate event handler in general and specificly for atomic operations.
+In the previous section we described how to use the OnUpdate event handler in general and specifically for atomic operations.
 
 Let's say that you are importing data from an external server. You would like to insert new records and update the old ones based on the unique key of the data. One of the fields of your schema is the date of creation, called `Created`. You don't want to change that. One solution is (the bad solution) to query the existing records, modify them based on the imported data and persist the result.
 

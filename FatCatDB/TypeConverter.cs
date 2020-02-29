@@ -23,7 +23,9 @@ namespace FatCatDB {
     /// For creating a type converter instance
     /// </summary>
     public class TypeConverterSetup {
-        private Dictionary<string, Func<object, object>> converters =  new Dictionary<string, Func<object, object>>();
+        private Dictionary<string, Func<IComparable, IComparable>> converters
+            = new Dictionary<string, Func<IComparable, IComparable>>();
+        
         private LocalDatePattern datePattern = LocalDatePattern.CreateWithInvariantCulture("yyyy-MM-dd");
         private LocalDateTimePattern dtPattern = LocalDateTimePattern.CreateWithInvariantCulture(
             "yyyy-MM-dd HH:mm:ss"
@@ -50,6 +52,9 @@ namespace FatCatDB {
             this.RegisterTypeConverter<double, string>(x => x.ToString());
             this.RegisterTypeConverter<string, double>(x => Convert.ToDouble(x));
 
+            this.RegisterTypeConverter<decimal, string>(x => x.ToString());
+            this.RegisterTypeConverter<string, decimal>(x => Convert.ToDecimal(x));
+
             this.RegisterTypeConverter<LocalDate, string>(x => datePattern.Format(x));
             this.RegisterTypeConverter<string, LocalDate>(x => datePattern.Parse(x).Value);
 
@@ -70,9 +75,11 @@ namespace FatCatDB {
         /// <param name="converter">Lambda function that does the conversion</param>
         /// <typeparam name="SOURCE">Source type</typeparam>
         /// <typeparam name="DEST">Destination type</typeparam>
-        public TypeConverterSetup RegisterTypeConverter<SOURCE, DEST>(Func<SOURCE, DEST> converter) {
+        public TypeConverterSetup RegisterTypeConverter<SOURCE, DEST>(Func<SOURCE, DEST> converter)
+                where SOURCE : IComparable where DEST : IComparable {
+
             converters[$"{typeof(SOURCE).Name}|{typeof(DEST).Name}"]
-                = new Func<object, object>(x => (DEST)converter((SOURCE)x));
+                = new Func<IComparable, IComparable>(x => (DEST)converter((SOURCE)x));
             
             return this;
         }
@@ -80,8 +87,8 @@ namespace FatCatDB {
         /// <summary>
         /// Returns all converters, indexed by source|destination strings.
         /// </summary>
-        internal Dictionary<string, Func<object, object>> GetConverters() {
-            return new Dictionary<string, Func<object, object>>(this.converters);
+        internal Dictionary<string, Func<IComparable, IComparable>> GetConverters() {
+            return new Dictionary<string, Func<IComparable, IComparable>>(this.converters);
         }
     }
 
@@ -90,7 +97,8 @@ namespace FatCatDB {
     /// de-serializing data of different types.
     /// </summary>
     internal class TypeConverter {
-        private Dictionary<string, Func<object, object>> converters =  new Dictionary<string, Func<object, object>>();
+        private Dictionary<string, Func<IComparable, IComparable>> converters
+            = new Dictionary<string, Func<IComparable, IComparable>>();
 
         /// <summary>
         /// Constructor
@@ -100,7 +108,7 @@ namespace FatCatDB {
             /*
                 Copy the settings
             */
-            this.converters = new Dictionary<string, Func<object, object>>(typeConverterSetup.GetConverters());
+            this.converters = new Dictionary<string, Func<IComparable, IComparable>>(typeConverterSetup.GetConverters());
         }
 
         /// <summary>
@@ -110,8 +118,8 @@ namespace FatCatDB {
         /// <param name="destTypeName">The name of the destination typoe</param>
         /// <param name="sourceValue">The value to convert</param>
         /// <returns>The value converted to a new type</returns>
-        internal object ConvertType(string sourceTypeName, string destTypeName, object sourceValue) {
-            Func<object, object> func = null;
+        internal object ConvertType(string sourceTypeName, string destTypeName, IComparable sourceValue) {
+            Func<IComparable, IComparable> func = null;
             converters.TryGetValue($"{sourceTypeName}|{destTypeName}", out func);
 
             if (func == null) {
@@ -126,8 +134,8 @@ namespace FatCatDB {
         /// Returns a lambda function for a specific type conversion.
         /// This lambda function had to be registered already.
         /// </summary>
-        internal Func<object, object> GetConverter(string sourceTypeName, string destTypeName) {
-            Func<object, object> func = null;
+        internal Func<IComparable, IComparable> GetConverter(string sourceTypeName, string destTypeName) {
+            Func<IComparable, IComparable> func = null;
             converters.TryGetValue($"{sourceTypeName}|{destTypeName}", out func);
 
             if (func == null) {

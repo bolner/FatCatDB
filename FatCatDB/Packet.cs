@@ -177,7 +177,8 @@ namespace FatCatDB {
         /// Decompress the raw data and desirialize the records.
         /// </summary>
         /// <param name="queryPlan">Optional for queries. Filters the recrods if passed.</param>
-        internal void DeserializeDecompress(QueryPlan<T> queryPlan = null) {
+        /// <param name="bookmarkFragment"></param>
+        internal void DeserializeDecompress(QueryPlan<T> queryPlan = null, Bookmark.BookmarkFragment bookmarkFragment = null) {
             if (rawCompressedData == null) {
                 return;
             }
@@ -261,6 +262,10 @@ namespace FatCatDB {
             if (queryPlan != null) {
                 if (queryPlan.FreeSorting.Count > 0) {
                     var props = table.Properties.ToArray();
+
+                    /*
+                        TODO: filter by the Bookmark
+                    */
 
                     this.lines.Sort((x, y) => {
                         foreach(var directive in queryPlan.FreeSorting) {

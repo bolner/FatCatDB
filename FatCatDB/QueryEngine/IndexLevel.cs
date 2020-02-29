@@ -26,8 +26,9 @@ namespace FatCatDB {
             private Int64 position = 0;
             internal string[] Files { get; } = null;
 
-            internal IndexLevel(string[] files) {
+            internal IndexLevel(string[] files, Int64 startPosition = 0) {
                 this.Files = files;
+                this.position = startPosition;
             }
 
             internal IndexLevel(string file) {

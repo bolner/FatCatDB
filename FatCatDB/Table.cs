@@ -52,8 +52,8 @@ namespace FatCatDB {
         private List<TableIndex<T>> indices = new List<TableIndex<T>>();
         private Dictionary<string, int> propertyNameToIndex = new Dictionary<string, int>();
 
-        private Func<object, object>[] conversionTable_ToStr;
-        private Func<object, object>[] conversionTable_FromStr;
+        private Func<IComparable, IComparable>[] conversionTable_ToStr;
+        private Func<IComparable, IComparable>[] conversionTable_FromStr;
 
         /// <summary>
         /// The names of the columns (which are written in the annotations)
@@ -164,6 +164,12 @@ namespace FatCatDB {
                     throw new Exception($"In class '{recordType.Name}' the property '{prop.Name}' is not nullable. All properties"
                         + $" have to be nullables. For example you can use 'Nullable<int>' for an 'int' type.");
                 }
+
+                if (!(typeof(IComparable).IsAssignableFrom(prop.PropertyType))) {
+                    throw new FatCatException($"In class '{recordType.Name}' the property '{prop.Name}' "
+                        + "has a type that doesn't implement the IComparable interface. All annotated columns "
+                        + "must be sortable.");
+                }
             }
 
             if (indices.Count < 1) {
@@ -173,8 +179,8 @@ namespace FatCatDB {
             /*
                 Generate the conversion tables
             */
-            conversionTable_ToStr = new Func<object, object>[Properties.Length];
-            conversionTable_FromStr = new Func<object, object>[Properties.Length];
+            conversionTable_ToStr = new Func<IComparable, IComparable>[Properties.Length];
+            conversionTable_FromStr = new Func<IComparable, IComparable>[Properties.Length];
             int index = 0;
             var converter = this.DbContext.TypeConverter;
 
@@ -255,14 +261,14 @@ namespace FatCatDB {
                 return (string)value;
             }
 
-            return (string)conversionTable_ToStr[propertyIndex](value);
+            return (string)conversionTable_ToStr[propertyIndex]((IComparable)value);
         }
 
         /// <summary>
         /// This is a slow function that whould not be used in the
         /// serialization of records.
         /// </summary>
-        internal object ConvertStringToValue(int propertyIndex, string value) {
+        internal IComparable ConvertStringToValue(int propertyIndex, string value) {
             if (value == nullValue) {
                 return null;
             }
@@ -287,7 +293,7 @@ namespace FatCatDB {
                 return (string)value;
             }
 
-            return (string)DbContext.TypeConverter.ConvertType(valueType, stringType, value);
+            return (string)DbContext.TypeConverter.ConvertType(valueType, stringType, (IComparable)value);
         }
 
         internal string GetPropertyValueAsString(T record, int propertyIndex) {

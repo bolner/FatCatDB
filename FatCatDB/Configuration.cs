@@ -24,12 +24,12 @@ namespace FatCatDB {
         /// <summary>
         /// The number of threads working on adding and modifying data
         /// </summary>
-        private int transactionParallelism = 4;
+        private int transactionParallelism = 8;
 
         /// <summary>
         /// The number of treads working on query execution and deserialization
         /// </summary>
-        private int queryParallelism = 4;
+        private int queryParallelism = 8;
 
         /// <summary>
         /// The location of the database files on a drive

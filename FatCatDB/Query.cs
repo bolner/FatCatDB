@@ -111,7 +111,7 @@ namespace FatCatDB {
         /// </summary>
         /// <param name="bookmark">A bookmark that was returned from a previous limited query.</param>
         public Query<T> AfterBookmark(string bookmark) {
-            this.bookmark = new Bookmark(bookmark);
+            this.bookmark = Bookmark.FromString(bookmark);
             return this;
         }
 

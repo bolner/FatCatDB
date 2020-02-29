@@ -26,27 +26,36 @@ namespace FatCatDB {
     /// be used to continue the same query after that record.
     /// </summary>
     internal class Bookmark {
-        private List<BookmarkFragment> fragments = new List<BookmarkFragment>();
+        [JsonProperty]
+        internal List<BookmarkFragment> Fragments { get; } = new List<BookmarkFragment>();
 
         /// <summary>
         /// A bookmark has multiple fragments in case of a composite
         /// query, created by one or more JOIN directives.
         /// </summary>
-        private class BookmarkFragment {
-            private string indexName;
-            private Dictionary<string, string> values = new Dictionary<string, string>();
+        internal class BookmarkFragment {
+            [JsonProperty]
+            internal string TableName { get; }
 
-            internal BookmarkFragment(string indexName, JObject values) {
-                this.indexName = indexName;
+            [JsonProperty]
+            internal string IndexName { get; }
+
+            [JsonProperty]
+            internal Dictionary<string, string> Path { get; } = new Dictionary<string, string>();
+
+            internal BookmarkFragment(string tableName, string indexName, JObject values) {
+                this.TableName = tableName;
+                this.IndexName = indexName;
 
                 foreach(var item in values) {
-                    this.values[item.Key] = item.Value.ToString();
+                    this.Path[item.Key] = item.Value.ToString();
                 }
             }
 
-            internal BookmarkFragment(string indexName, Dictionary<string, string> values) {
-                this.indexName = indexName;
-                this.values = new Dictionary<string, string>(values);
+            internal BookmarkFragment(string tableName, string indexName, Dictionary<string, string> values) {
+                this.TableName = tableName;
+                this.IndexName = indexName;
+                this.Path = new Dictionary<string, string>(values);
             }
         }
 
@@ -58,24 +67,16 @@ namespace FatCatDB {
         }
 
         /// <summary>
-        /// Construcor
+        /// Factory method.
         /// </summary>
         /// <param name="bookmarkText">The Base64-encoded JSON representation of the Bookmark.</param>
-        internal Bookmark(string bookmarkText) {
+        internal static Bookmark FromString(string bookmarkText) {
             try {
                 string decoded = Encoding.UTF8.GetString(
                     Convert.FromBase64String(bookmarkText)
                 );
 
-                JObject json = JsonConvert.DeserializeObject<JObject>(decoded);
-
-                foreach(var fragment in json) {
-                    if (fragment.Value is JObject) {
-                        this.fragments.Add(new BookmarkFragment(fragment.Key, (JObject)fragment.Value));
-                    } else {
-                        throw new Exception("The bookmark has to contain a JSON object of objects, encoded in Base64.");
-                    }
-                }
+                return JsonConvert.DeserializeObject<Bookmark>(decoded);
             } catch (Exception ex) {
                 throw new FatCatException("Invalid bookmark format. Please make sure that the string is "
                     + "not modified before using it in a query.", ex);
@@ -85,10 +86,15 @@ namespace FatCatDB {
         /// <summary>
         /// Adds the next level of bookmark fragment.
         /// </summary>
-        /// <param name="indexName">An index in the table. (The table is determined by the order of the fragments.)</param>
+        /// <param name="tableName">The name of the table on which the query was executed.</param>
+        /// <param name="indexName">An index in the table.</param>
         /// <param name="recordPath">You can get this by Table.GetFullRecordPath(...)</param>
-        internal void AddFragment(string indexName, Dictionary<string, string> recordPath) {
-            this.fragments.Add(new BookmarkFragment(indexName, recordPath));
+        internal void AddFragment(string tableName, string indexName, Dictionary<string, string> recordPath) {
+            this.Fragments.Add(new BookmarkFragment(tableName, indexName, recordPath));
+        }
+
+        public override string ToString() {
+            return JsonConvert.SerializeObject(this);
         }
     }
 }
