@@ -6,5 +6,4 @@
     - Apply flex filtering.
     - Apply the sorting directives inside the packets, which weren't used for an index level:
         - cost
-    - Offset: Index of the first record to return: 10
-    - Limit: Number of records to return: 100
+    - Limit: The maximal number of records to return is 100

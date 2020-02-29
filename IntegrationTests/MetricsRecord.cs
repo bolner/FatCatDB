@@ -23,7 +23,7 @@ namespace FatCatDB.Test {
     [TableIndex(Name = "date_account", Columns = "date, account_id")]
     internal class MetricsRecord {
         [Column(Name = "date")]
-        public LocalDate Date { get; set; }
+        public LocalDate? Date { get; set; }
 
         [Column(Name = "account_id")]
         public string AccountID { get; set; }
@@ -35,24 +35,24 @@ namespace FatCatDB.Test {
         public string AdID { get; set; }
 
         [Column(Name = "last_updated")]
-        public LocalDateTime LastUpdated { get; set; }
+        public LocalDateTime? LastUpdated { get; set; }
 
         [Column(Name = "created")]
-        public LocalDateTime Created { get; set; }
+        public LocalDateTime? Created { get; set; }
 
         [Column(Name = "impressions")]
-        public Nullable<long> Impressions { get; set; }
+        public long? Impressions { get; set; }
 
         [Column(Name = "clicks")]
         public long? Clicks { get; set; }
 
         [Column(Name = "conversion")]
-        public Nullable<long> Conversions { get; set; }
+        public long? Conversions { get; set; }
 
         [Column(Name = "revenue")]
-        public Nullable<double> Revenue { get; set; }
+        public decimal? Revenue { get; set; }
 
         [Column(Name = "cost")]
-        public Nullable<double> Cost { get; set; }
+        public decimal? Cost { get; set; }
     }
 }

@@ -43,6 +43,12 @@ namespace FatCatDB {
             [JsonProperty]
             internal Dictionary<string, string> Path { get; } = new Dictionary<string, string>();
 
+            /// <summary>
+            /// Constructor
+            /// </summary>
+            /// <param name="tableName">Table name</param>
+            /// <param name="indexName">Index name</param>
+            /// <param name="values">The index/unique path values for the last record</param>
             internal BookmarkFragment(string tableName, string indexName, JObject values) {
                 this.TableName = tableName;
                 this.IndexName = indexName;
@@ -52,10 +58,37 @@ namespace FatCatDB {
                 }
             }
 
+            /// <summary>
+            /// Constructor
+            /// </summary>
+            /// <param name="tableName">Table name</param>
+            /// <param name="indexName">Index name</param>
+            /// <param name="values">The index/unique path values for the last record</param>
             internal BookmarkFragment(string tableName, string indexName, Dictionary<string, string> values) {
                 this.TableName = tableName;
                 this.IndexName = indexName;
                 this.Path = new Dictionary<string, string>(values);
+            }
+
+            /// <summary>
+            /// Returns the path filter values in their original type,
+            /// indexed by the property indices.
+            /// </summary>
+            /// <returns>An array of the length of table properties.</returns>
+            internal Dictionary<int, IComparable> GetPropertyValues<T>(Table<T> table) where T : class, new() {
+                Dictionary<int, IComparable> result = new Dictionary<int, IComparable>();
+                
+                foreach(var item in this.Path) {
+                    int propindex = table.ColumnNameToPropertyIndex(item.Key);
+                    if (propindex < 0) {
+                        throw new FatCatException($"Invalid bookmark. Please always use the bookmarks in the same "
+                            + "queries they were created for.");
+                    }
+
+                    result[propindex] = table.ConvertStringToValue(propindex, item.Value);
+                }
+
+                return result;
             }
         }
 

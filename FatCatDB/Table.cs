@@ -51,6 +51,7 @@ namespace FatCatDB {
 
         private List<TableIndex<T>> indices = new List<TableIndex<T>>();
         private Dictionary<string, int> propertyNameToIndex = new Dictionary<string, int>();
+        private Dictionary<string, int> columnNameToIndex = new Dictionary<string, int>();
 
         private Func<IComparable, IComparable>[] conversionTable_ToStr;
         private Func<IComparable, IComparable>[] conversionTable_FromStr;
@@ -80,7 +81,6 @@ namespace FatCatDB {
             this.dbContext = dbContext;
             this.recordType = typeof(T);
             var columnLookup = new Dictionary<string, PropertyInfo>();
-            var columnIndexLookup = new Dictionary<string, int>();
             int indexCount = 0;
             var propTmp = new List<PropertyInfo>();
             var cNamesTmp = new List<string>();
@@ -104,7 +104,7 @@ namespace FatCatDB {
                         cNamesTmp.Add(columnName);
                         propTmp.Add(prop);
                         columnLookup[columnName] = prop;
-                        columnIndexLookup[columnName] = indexCount;
+                        columnNameToIndex[columnName] = indexCount;
                         propertyNameToIndex[prop.Name] = indexCount;
                         indexCount++;
                     }
@@ -131,7 +131,7 @@ namespace FatCatDB {
                             throw new FatCatException($"In class '{recordType.Name}' the index '{indexAtt.Name}' refers to column '{name}' which doesn't exist.");
                         }
 
-                        props.Add(columnIndexLookup[name]);
+                        props.Add(columnNameToIndex[name]);
                     }
 
                     indices.Add(
@@ -147,7 +147,7 @@ namespace FatCatDB {
                             throw new FatCatException($"In class '{recordType.Name}' the unique field of the table annotation refers to column '{name}' which doesn't exist.");
                         }
 
-                        uniquePropertyIndices.Add(columnIndexLookup[name]);
+                        uniquePropertyIndices.Add(columnNameToIndex[name]);
                     }
 
                     nullValue = tableAtt.NullValue;
@@ -165,10 +165,15 @@ namespace FatCatDB {
                         + $" have to be nullables. For example you can use 'Nullable<int>' for an 'int' type.");
                 }
 
-                if (!(typeof(IComparable).IsAssignableFrom(prop.PropertyType))) {
+                var ptype = Nullable.GetUnderlyingType(prop.PropertyType);
+                if (ptype == null) {
+                    ptype = prop.PropertyType;
+                }
+
+                if (!(typeof(IComparable).IsAssignableFrom(ptype))) {
                     throw new FatCatException($"In class '{recordType.Name}' the property '{prop.Name}' "
-                        + "has a type that doesn't implement the IComparable interface. All annotated columns "
-                        + "must be sortable.");
+                        + $"has a type '{prop.PropertyType.Name}' that doesn't implement the IComparable interface. "
+                        + "All annotated columns must be sortable.");
                 }
             }
 
@@ -278,7 +283,13 @@ namespace FatCatDB {
                 return value;
             }
 
-            return conversionTable_FromStr[propertyIndex](value);
+            try {
+                return conversionTable_FromStr[propertyIndex](value);
+            } catch (Exception ex) {
+                throw new FatCatException($"Failed to convert value '{value}' for column '{this.ColumnNames[propertyIndex]}' to "
+                    + $"its original type. The following error was thrown: '{ex.Message}'. Please double check the type "
+                    + "conversion functions for the type of that specific column.", ex);
+            }
         }
 
         internal string ConvertValueToString(object value) {
@@ -428,6 +439,17 @@ namespace FatCatDB {
             }
 
             return path;
+        }
+
+        /// <summary>
+        /// Returns the corresponding property index for a column name if found.
+        /// Returns -1 otherwise.
+        /// </summary>
+        internal int ColumnNameToPropertyIndex(string columnName) {
+            int value = -1;
+            this.columnNameToIndex.TryGetValue(columnName, out value);
+
+            return value;
         }
     }
 }

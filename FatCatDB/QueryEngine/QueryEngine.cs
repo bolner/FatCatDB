@@ -123,8 +123,12 @@ namespace FatCatDB
             do {
                 if (executionPath.Count >= queryPlan.BestIndex.PropertyIndices.Count) {
                     /*
-                        We've found an item. This will be returned for this call.
+                        We've found an item. It will be returned for this call.
+                        Also deactivate the bookmark (if any), as we've already filled
+                        up the execution path for the first time.
                     */
+                    this.bookmarkFragment = null;
+
                     var packet = new Packet<T>(
                         this.table, queryPlan.BestIndex,
                         executionPath.Select(x => x.Current()).Reverse().ToList()
@@ -180,6 +184,7 @@ namespace FatCatDB
                                 files = this.ListFilesInFolder(currentPath, false, isLastLevel, propIndex, afterValue);
                             }
                         } else {
+                            // Ascending by default
                             files = this.ListFilesInFolder(currentPath, true, isLastLevel, propIndex, afterValue);
                         }
 
@@ -269,7 +274,7 @@ namespace FatCatDB
                 }
 
                 this.activeRecords = payload.Packet.GetRecords();
-                this.activeRecordIndex = 0;
+                this.activeRecordIndex = FindActiveRecordIndex();
             } while (true);
         }
 
@@ -314,8 +319,46 @@ namespace FatCatDB
                 }
 
                 this.activeRecords = payload.Packet.GetRecords();
-                this.activeRecordIndex = 0;
+                this.activeRecordIndex = FindActiveRecordIndex();
             } while (true);
+        }
+
+        /// <summary>
+        /// Uses the bookmark to find the next record.
+        /// </summary>
+        /// <returns>The index of the next record, or "activeRecords.Length" if we
+        ///     should jump to the next packet.</returns>
+        private long FindActiveRecordIndex() {
+            if (this.bookmarkFragment == null) {
+                return 0;
+            }
+
+            var values = bookmarkFragment.GetPropertyValues<T>(this.table);
+            bool equal;
+
+            for(int i = 0; i < this.activeRecords.Length; i++) {
+                equal = true;
+
+                foreach(var value in values) {
+                    if (table.Properties[value.Key].GetValue(this.activeRecords[i]) != value.Value) {
+                        equal = false;
+                        break;
+                    }
+                }
+
+                if (equal) {
+                    /*
+                        This is intentionally returning an invalid index
+                        "activeRecords.Length", when the found record
+                        was the last in the packet.
+                        The record traversing code can handle that index.
+                    */
+                    return i + 1;
+                }
+            }
+
+            throw new FatCatException("Failed to apply bookmark. The bookmarked record has been removed since the query "
+                + "for which the bookmark was generated.");
         }
 
         /// <summary>
@@ -369,6 +412,9 @@ namespace FatCatDB
 
             try {
                 if (isLastLevel) {
+                    /*
+                        Files
+                    */
                     files = Directory.EnumerateFiles(folder, "*.tsv.gz", SearchOption.TopDirectoryOnly)
                         .Select(x => {
                             var fileBase = Path.GetFileName(x).Replace(".tsv.gz", "");
@@ -399,9 +445,9 @@ namespace FatCatDB
             }
 
             if (asc) {
-                orderedFiles = files.OrderByDescending(x => x.Item1);
-            } else {
                 orderedFiles = files.OrderBy(x => x.Item1);
+            } else {
+                orderedFiles = files.OrderByDescending(x => x.Item1);
             }
 
             return orderedFiles.Select(x => x.Item2).ToArray();

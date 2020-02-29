@@ -49,8 +49,8 @@ namespace FatCatDB.Test {
                             te.Impressions = rnd.Next(1000, 100000);
                             te.Clicks = rnd.Next(100, 1000);
                             te.Conversions = rnd.Next(1, 100);
-                            te.Revenue = rnd.NextDouble() * 100;
-                            te.Cost = rnd.NextDouble() * 50;
+                            te.Revenue = (decimal?)(rnd.NextDouble() * 100);
+                            te.Cost = (decimal?)(rnd.NextDouble() * 50);
 
                             tr.Add(te);
                         }
@@ -132,8 +132,8 @@ namespace FatCatDB.Test {
                 item.Impressions = rnd.Next(1000, 100000);
                 item.Clicks = rnd.Next(100, 1000);
                 item.Conversions = rnd.Next(1, 100);
-                item.Revenue = rnd.NextDouble() * 100;
-                item.Cost = rnd.NextDouble() * 50;
+                item.Revenue = (decimal?)(rnd.NextDouble() * 100);
+                item.Cost = (decimal?)(rnd.NextDouble() * 50);
 
                 transaction.Add(item);
             }

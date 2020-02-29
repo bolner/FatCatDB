@@ -177,8 +177,7 @@ namespace FatCatDB {
         /// Decompress the raw data and desirialize the records.
         /// </summary>
         /// <param name="queryPlan">Optional for queries. Filters the recrods if passed.</param>
-        /// <param name="bookmarkFragment"></param>
-        internal void DeserializeDecompress(QueryPlan<T> queryPlan = null, Bookmark.BookmarkFragment bookmarkFragment = null) {
+        internal void DeserializeDecompress(QueryPlan<T> queryPlan = null) {
             if (rawCompressedData == null) {
                 return;
             }
@@ -257,16 +256,12 @@ namespace FatCatDB {
             }
 
             /*
-                Sort records inside a packet
+                Sort records inside the packet
             */
             if (queryPlan != null) {
                 if (queryPlan.FreeSorting.Count > 0) {
                     var props = table.Properties.ToArray();
-
-                    /*
-                        TODO: filter by the Bookmark
-                    */
-
+                    
                     this.lines.Sort((x, y) => {
                         foreach(var directive in queryPlan.FreeSorting) {
                             int dir = directive.Item2 == SortingDirection.Ascending ? 1 : -1;
