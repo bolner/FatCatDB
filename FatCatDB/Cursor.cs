@@ -91,5 +91,23 @@ namespace FatCatDB {
 
             return result;
         }
+
+        /// <summary>
+        /// Returns the string representation of the bookmark.
+        /// Using the bookmark one can continue a limited query
+        /// at the point it stopped.
+        /// </summary>
+        public string GetBookmark() {
+            var lastRecord = this.queryEngine.GetLastRecordFetched();
+
+            var bookmark = new Bookmark();
+            bookmark.AddFragment(
+                this.table.Annotation.Name,
+                this.queryPlan.BestIndex.Name,
+                this.table.GetFullRecordPath(this.queryPlan.BestIndex, lastRecord)
+            );
+
+            return bookmark.ToString();
+        }
     }
 }

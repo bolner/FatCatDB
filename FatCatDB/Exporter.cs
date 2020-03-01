@@ -117,5 +117,14 @@ namespace FatCatDB {
 
             await PrintToTsvWriterAsync(tsvWriter);
         }
+
+        /// <summary>
+        /// Returns the string representation of the bookmark.
+        /// Using the bookmark one can continue a limited query
+        /// at the point it stopped.
+        /// </summary>
+        public string GetBookmark() {
+            return this.cursor.GetBookmark();
+        }
     }
 }

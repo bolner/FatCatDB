@@ -33,6 +33,7 @@ namespace FatCatDB
         private bool noMorePackets = false;
         private long limit;
         private Bookmark.BookmarkFragment bookmarkFragment;
+        private bool bookmarkApplied = false;
         private FilenameEncoder filenameEncoder = new FilenameEncoder();
         private string pathPrefix;
 
@@ -106,7 +107,7 @@ namespace FatCatDB
 
                 if (this.bookmarkFragment == null) {
                     throw new FatCatException($"Invalid bookmark. Please always use the bookmarks in the same "
-                        + "queries they were created for.");
+                        + "queries they were created for. (2)");
                 }
             }
         }
@@ -127,7 +128,7 @@ namespace FatCatDB
                         Also deactivate the bookmark (if any), as we've already filled
                         up the execution path for the first time.
                     */
-                    this.bookmarkFragment = null;
+                    this.bookmarkApplied = true;
 
                     var packet = new Packet<T>(
                         this.table, queryPlan.BestIndex,
@@ -154,11 +155,11 @@ namespace FatCatDB
                     bool isLastLevel = executionPath.Count == queryPlan.BestIndex.PropertyIndices.Count - 1;
                     IComparable afterValue = null;
 
-                    if (this.bookmarkFragment != null) {
+                    if (this.bookmarkFragment != null && !this.bookmarkApplied) {
                         string columnName = this.table.ColumnNames[propIndex];
                         if (!this.bookmarkFragment.Path.ContainsKey(columnName)) {
                             throw new FatCatException($"Invalid bookmark. Please always use the bookmarks in the same "
-                                + "queries they were created for.");
+                                + "queries they were created for. (3)");
                         }
 
                         afterValue = table.ConvertStringToValue(propIndex, this.bookmarkFragment.Path[columnName]);
@@ -340,7 +341,9 @@ namespace FatCatDB
                 equal = true;
 
                 foreach(var value in values) {
-                    if (table.Properties[value.Key].GetValue(this.activeRecords[i]) != value.Value) {
+                    var recordValue = (IComparable)table.Properties[value.Key].GetValue(this.activeRecords[i]);
+                    
+                    if (recordValue.CompareTo(value.Value) != 0) {
                         equal = false;
                         break;
                     }
@@ -438,9 +441,9 @@ namespace FatCatDB
 
             if (afterValue != null) {
                 if (asc) {
-                    files = files.Where(x => x.Item1.CompareTo(afterValue) <= 0);
-                } else {
                     files = files.Where(x => x.Item1.CompareTo(afterValue) >= 0);
+                } else {
+                    files = files.Where(x => x.Item1.CompareTo(afterValue) <= 0);
                 }
             }
 

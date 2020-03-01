@@ -35,8 +35,8 @@ namespace FatCatDB.Test {
                 });
             
             configurator
-                .SetTransactionParallelism(6)
-                .SetQueryParallelism(6)
+                .SetTransactionParallelism(1)
+                .SetQueryParallelism(1)
                 .EnableDurability(false);
         }
     }

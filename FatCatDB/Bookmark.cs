@@ -35,13 +35,20 @@ namespace FatCatDB {
         /// </summary>
         internal class BookmarkFragment {
             [JsonProperty]
-            internal string TableName { get; }
+            private string tableName;
+            internal string TableName { get { return tableName; } }
 
             [JsonProperty]
-            internal string IndexName { get; }
+            private string indexName;
+            internal string IndexName { get { return indexName; } }
 
             [JsonProperty]
             internal Dictionary<string, string> Path { get; } = new Dictionary<string, string>();
+
+            [JsonConstructor]
+            internal BookmarkFragment() {
+
+            }
 
             /// <summary>
             /// Constructor
@@ -50,8 +57,8 @@ namespace FatCatDB {
             /// <param name="indexName">Index name</param>
             /// <param name="values">The index/unique path values for the last record</param>
             internal BookmarkFragment(string tableName, string indexName, JObject values) {
-                this.TableName = tableName;
-                this.IndexName = indexName;
+                this.tableName = tableName;
+                this.indexName = indexName;
 
                 foreach(var item in values) {
                     this.Path[item.Key] = item.Value.ToString();
@@ -65,8 +72,8 @@ namespace FatCatDB {
             /// <param name="indexName">Index name</param>
             /// <param name="values">The index/unique path values for the last record</param>
             internal BookmarkFragment(string tableName, string indexName, Dictionary<string, string> values) {
-                this.TableName = tableName;
-                this.IndexName = indexName;
+                this.tableName = tableName;
+                this.indexName = indexName;
                 this.Path = new Dictionary<string, string>(values);
             }
 
@@ -82,7 +89,7 @@ namespace FatCatDB {
                     int propindex = table.ColumnNameToPropertyIndex(item.Key);
                     if (propindex < 0) {
                         throw new FatCatException($"Invalid bookmark. Please always use the bookmarks in the same "
-                            + "queries they were created for.");
+                            + "queries they were created for. (1)");
                     }
 
                     result[propindex] = table.ConvertStringToValue(propindex, item.Value);
@@ -112,7 +119,7 @@ namespace FatCatDB {
                 return JsonConvert.DeserializeObject<Bookmark>(decoded);
             } catch (Exception ex) {
                 throw new FatCatException("Invalid bookmark format. Please make sure that the string is "
-                    + "not modified before using it in a query.", ex);
+                    + $"not modified before using it in a query.", ex);
             }
         }
 
@@ -126,8 +133,15 @@ namespace FatCatDB {
             this.Fragments.Add(new BookmarkFragment(tableName, indexName, recordPath));
         }
 
+        /// <summary>
+        /// Returns the string representation of the bookmark
+        /// </summary>
         public override string ToString() {
-            return JsonConvert.SerializeObject(this);
+            return Convert.ToBase64String(
+                Encoding.UTF8.GetBytes(
+                    JsonConvert.SerializeObject(this)
+                )
+            );
         }
     }
 }
