@@ -125,11 +125,7 @@ namespace FatCatDB
                 if (executionPath.Count >= queryPlan.BestIndex.PropertyIndices.Count) {
                     /*
                         We've found an item. It will be returned for this call.
-                        Also deactivate the bookmark (if any), as we've already filled
-                        up the execution path for the first time.
                     */
-                    this.bookmarkApplied = true;
-
                     var packet = new Packet<T>(
                         this.table, queryPlan.BestIndex,
                         executionPath.Select(x => x.Current()).Reverse().ToList()
@@ -330,10 +326,17 @@ namespace FatCatDB
         /// <returns>The index of the next record, or "activeRecords.Length" if we
         ///     should jump to the next packet.</returns>
         private long FindActiveRecordIndex() {
-            if (this.bookmarkFragment == null) {
+            if (this.bookmarkFragment == null || this.bookmarkApplied) {
                 return 0;
             }
 
+            /*
+                Deactivate the bookmark (if any), as we've already filled
+                    up the execution path for the first time and the first
+                    packet will already be filtered.
+            */
+            this.bookmarkApplied = true;
+            
             var values = bookmarkFragment.GetPropertyValues<T>(this.table);
             bool equal;
 

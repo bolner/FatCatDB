@@ -76,7 +76,7 @@ namespace FatCatDB.Test {
                 .GetExporter();
 
             await exporter.PrintAsync();
-            Console.WriteLine($"\n\nThe bookmark:\n\n{exporter.GetBookmark()}");
+            Console.Write($"\n\nThe bookmark:\n\n{exporter.GetBookmark()}\n");
         }
 
         [EntryPoint(Name = "queryPage1", Description = "Query the first page and the bookmark")]
@@ -88,7 +88,7 @@ namespace FatCatDB.Test {
                 .GetExporter();
 
             await exporter.PrintAsync();
-            Console.WriteLine($"\n\nThe bookmark:\n\n{exporter.GetBookmark()}");
+            Console.Write($"\n\nThe bookmark:\n\n{exporter.GetBookmark()}\n");
         }
 
         [EntryPoint(Name = "queryPage2", Description = "Query the second page and the bookmark")]
@@ -101,7 +101,7 @@ namespace FatCatDB.Test {
                 .GetExporter();
 
             await exporter.PrintAsync();
-            Console.WriteLine($"\n\nThe bookmark:\n\n{exporter.GetBookmark()}");
+            Console.Write($"\n\nThe bookmark:\n\n{exporter.GetBookmark()}\n");
         }
     }
 }
