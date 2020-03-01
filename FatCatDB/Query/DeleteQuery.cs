@@ -23,12 +23,14 @@ namespace FatCatDB {
     /// <typeparam name="T">An annotated class of a database table record</typeparam>
     public class DeleteQuery<T> where T : class, new() {
         internal QueryBase<T> QueryBase { get; }
+        private Transaction<T> transaction;
 
         /// <summary>
         /// Constructor
         /// </summary>
-        public DeleteQuery(Table<T> table) {
+        public DeleteQuery(Table<T> table, Transaction<T> transaction) {
             this.QueryBase = new QueryBase<T>(table);
+            this.transaction = transaction;
         }
 
         /// <summary>
@@ -113,6 +115,14 @@ namespace FatCatDB {
             var plan = new QueryPlan<T>(this.QueryBase);
 
             return plan.ToString();
+        }
+
+        /// <summary>
+        /// Save all changes onto the underlying device.
+        /// </summary>
+        /// <param name="garbageCollection">True = force garbage collection after the commit.</param>
+        public void Commit(bool garbageCollection = false) {
+            this.transaction.Commit(garbageCollection);
         }
     }
 }

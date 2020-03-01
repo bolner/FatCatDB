@@ -122,7 +122,7 @@ namespace FatCatDB {
         /// the queried items.
         /// </summary>
         public Cursor<T> GetCursor() {
-            return new Cursor<T>(this.QueryBase);
+            return new Cursor<T>(this);
         }
 
         /// <summary>

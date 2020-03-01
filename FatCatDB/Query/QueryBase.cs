@@ -24,7 +24,7 @@ namespace FatCatDB {
     /// A query for fetching data from the database
     /// </summary>
     /// <typeparam name="T">An annotated class of a database table record</typeparam>
-    public class QueryBase<T> where T : class, new() {
+    internal class QueryBase<T> where T : class, new() {
         internal Table<T> Table { get; }
         internal Dictionary<int, string> IndexFilters { get; } = new Dictionary<int, string>();
         internal List<Func<T, bool>> FlexFilters { get; } = new List<Func<T, bool>>();
@@ -39,7 +39,7 @@ namespace FatCatDB {
         /// <summary>
         /// Constructor
         /// </summary>
-        public QueryBase(Table<T> table) {
+        internal QueryBase(Table<T> table) {
             this.Table = table;
         }
 
@@ -51,7 +51,7 @@ namespace FatCatDB {
         /// </summary>
         /// <param name="property">Filter by this column of the table</param>
         /// <param name="value">Exact match with this value</param>
-        public QueryBase<T> Where(Expression<Func<T, object>> property, object value) {
+        internal QueryBase<T> Where(Expression<Func<T, object>> property, object value) {
             IndexFilters[Table.GetPropertyIndex(Table.GetPropertyName(property))] = Table.ConvertValueToString(value);
             
             return this;
@@ -64,7 +64,7 @@ namespace FatCatDB {
         /// 'Where' method for optimal performace.
         /// </summary>
         /// <param name="filterExpression">An arbitrary expression, involving the columns of the table.</param>
-        public QueryBase<T> FlexFilter(Func<T, bool> filterExpression) {
+        internal QueryBase<T> FlexFilter(Func<T, bool> filterExpression) {
             this.FlexFilters.Add(filterExpression);
 
             return this;
@@ -77,7 +77,7 @@ namespace FatCatDB {
         /// See: Query.AfterBookmark(...)
         /// </summary>
         /// <param name="limit">How many items to return</param>
-        public QueryBase<T> Limit(Int64 limit) {
+        internal QueryBase<T> Limit(Int64 limit) {
             this.queryLimit = limit;
 
             return this;
@@ -88,7 +88,7 @@ namespace FatCatDB {
         /// This functionality is similar to the "offset" of SQL.
         /// </summary>
         /// <param name="bookmark">A bookmark that was returned from a previous limited query.</param>
-        public QueryBase<T> AfterBookmark(string bookmark) {
+        internal QueryBase<T> AfterBookmark(string bookmark) {
             if (bookmark == null) {
                 this.bookmark = null;
             } else {
@@ -102,7 +102,7 @@ namespace FatCatDB {
         /// Add a sorting directive for a specific field.
         /// Multiple field sorting is supported.
         /// </summary>
-        public QueryBase<T> OrderByAsc(Expression<Func<T, object>> property) {
+        internal QueryBase<T> OrderByAsc(Expression<Func<T, object>> property) {
             var pIndex = Table.GetPropertyIndex(Table.GetPropertyName(property));
             this.ValidateSortingProperty(pIndex);
             this.Sorting.Add(Tuple.Create(pIndex, SortingDirection.Ascending));
@@ -114,7 +114,7 @@ namespace FatCatDB {
         /// Add a sorting directive for a specific field.
         /// Multiple field sorting is supported.
         /// </summary>
-        public QueryBase<T> OrderByDesc(Expression<Func<T, object>> property) {
+        internal QueryBase<T> OrderByDesc(Expression<Func<T, object>> property) {
             var pIndex = Table.GetPropertyIndex(Table.GetPropertyName(property));
             this.ValidateSortingProperty(pIndex);
             this.Sorting.Add(Tuple.Create(pIndex, SortingDirection.Descending));
@@ -145,7 +145,7 @@ namespace FatCatDB {
         /// This setting is ignored if you hint a specific index
         /// using 'HintIndex'.
         /// </summary>
-        public QueryBase<T> HintIndexPriority(IndexPriority priority) {
+        internal QueryBase<T> HintIndexPriority(IndexPriority priority) {
             this.IndexPriority = priority;
             return this;
         }
@@ -156,7 +156,7 @@ namespace FatCatDB {
         /// If this option is set, then the 'HintIndexPriority'
         /// setting is ignored.
         /// </summary>
-        public QueryBase<T> HintIndex(string indexName) {
+        internal QueryBase<T> HintIndex(string indexName) {
             this.HintedIndex = indexName;
             return this;
         }
@@ -164,7 +164,7 @@ namespace FatCatDB {
         /// <summary>
         /// Returns a user-friendly text that describes the query plan.
         /// </summary>
-        public string GetQueryPlan() {
+        internal string GetQueryPlan() {
             var plan = new QueryPlan<T>(this);
 
             return plan.ToString();

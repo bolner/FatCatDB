@@ -32,8 +32,8 @@ namespace FatCatDB {
         private int parallelism;
         private Exception exception = null;
         private Func<T, T, T> updateEventHandler = null;
-        private QueryBase<T> updateQuery = null;
-        private QueryBase<T> deleteQuery = null;
+        private UpdateQuery<T> updateQuery = null;
+        private DeleteQuery<T> deleteQuery = null;
 
         private Dictionary<string, PacketPlan> packetPlans = new Dictionary<string, PacketPlan>();
 
@@ -126,14 +126,30 @@ namespace FatCatDB {
         /// <param name="garbageCollection">True = force garbage collection after the commit.</param>
         public void Commit(bool garbageCollection = false) {
             /*
+                Delete query
+            */
+            if (this.deleteQuery != null) {
+
+            }
+
+            /*
+                Update query
+            */
+            if (this.updateQuery != null) {
+                
+            }
+
+            /*
                 Insert, update or remove (per packet)
             */
-            Parallel.ForEach(
-                packetPlans,
-                new ParallelOptions {MaxDegreeOfParallelism = this.parallelism},
-                item => CommitThread(item.Value)
-            );
-
+            if (this.packetPlans.Count > 0) {
+                Parallel.ForEach(
+                    packetPlans,
+                    new ParallelOptions {MaxDegreeOfParallelism = this.parallelism},
+                    item => CommitThread(item.Value)
+                );
+            }
+            
             records.Clear();
             remove.Clear();
             packetPlans.Clear();
@@ -289,8 +305,8 @@ namespace FatCatDB {
         /// Use the OnUpdate() method to specify what should happen with the updated
         /// records.
         /// </summary>
-        public QueryBase<T> Update() {
-            this.updateQuery = new QueryBase<T>(this.table);
+        public UpdateQuery<T> Update() {
+            this.updateQuery = new UpdateQuery<T>(this.table, this);
 
             return this.updateQuery;
         }
@@ -298,8 +314,8 @@ namespace FatCatDB {
         /// <summary>
         /// Allows to specify records to be deleted for this table during the commit phase.
         /// </summary>
-        public QueryBase<T> Delete() {
-            this.deleteQuery = new QueryBase<T>(this.table);
+        public DeleteQuery<T> Delete() {
+            this.deleteQuery = new DeleteQuery<T>(this.table, this);
 
             return this.deleteQuery;
         }
