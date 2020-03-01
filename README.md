@@ -119,6 +119,18 @@ All properties without annotation are just ignored by FatCatDB, and they won't c
 
 The design of FatCatDB follows [dependency injection](https://en.wikipedia.org/wiki/Dependency_injection) to make implementing unit tests possible. Therefore to use it, you have to instantiate a `database context` class, which is derived from `DbContextBase`.
 
+A minimal database context class contains only your tables:
+
+```csharp
+internal class DbContext : DbContextBase {
+    public Table<CatRecord> Cats { get; } = new Table<CatRecord>();
+    public Table<DogRecord> Dogs { get; } = new Table<DogRecord>();
+    public Table<BunnyRecord> Bunnies { get; } = new Table<BunnyRecord>();
+}
+```
+
+But you can also change the default configuration:
+
 ```csharp
 internal class DbContext : DbContextBase {
     public Table<MetricsRecord> Metrics { get; } = new Table<MetricsRecord>();
