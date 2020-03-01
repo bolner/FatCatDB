@@ -18,7 +18,7 @@ using FatCatDB.Annotation;
 using NodaTime;
 
 namespace FatCatDB.Test {
-    [Table(Name = "test_event", Unique = "ad_id, date", NullValue = "")]
+    [Table(Name = "metrics", Unique = "ad_id, date", NullValue = "")]
     [TableIndex(Name = "account_date", Columns = "account_id, date")]
     [TableIndex(Name = "date_account", Columns = "date, account_id")]
     internal class MetricsRecord {
