@@ -32,7 +32,7 @@ namespace FatCatDB {
         /// Constructor
         /// </summary>
         /// <param name="query">An object, specifying the query</param>
-        public Cursor(Query<T> query) {
+        public Cursor(QueryBase<T> query) {
             this.table = query.Table;
             this.queryPlan = new QueryPlan<T>(query);
             this.queryEngine = new QueryEngine<T>(queryPlan);

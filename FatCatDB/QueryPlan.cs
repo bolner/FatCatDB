@@ -21,7 +21,7 @@ using System.Collections.Generic;
 namespace FatCatDB {
     internal class QueryPlan<T> where T : class, new() {
         internal Table<T> Table;
-        internal Query<T> Query { get; }
+        internal QueryBase<T> Query { get; }
         internal Dictionary<int, string> FreeIndexFilters { get; } = new Dictionary<int, string>();
         internal Dictionary<int, SortingDirection> SortingAssoc { get; } = new Dictionary<int, SortingDirection>();
         internal TableIndex<T> BestIndex { get; }
@@ -29,7 +29,7 @@ namespace FatCatDB {
         internal Dictionary<int, SortingDirection> BoundSorting { get; } = new Dictionary<int, SortingDirection>();
         internal List<Tuple<int, SortingDirection>> FreeSorting { get; } = new List<Tuple<int, SortingDirection>>();
 
-        internal QueryPlan(Query<T> query) {
+        internal QueryPlan(QueryBase<T> query) {
             this.Table = query.Table;
             this.Query = query;
             

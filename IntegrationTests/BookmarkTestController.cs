@@ -97,7 +97,7 @@ namespace FatCatDB.Test {
 
             var exporter = GetQuery(db)
                 .Limit(12)
-                .AfterBookmark("eyJGcmFnbWVudHMiOlt7InRhYmxlTmFtZSI6InRlc3RfZXZlbnQiLCJpbmRleE5hbWUiOiJhY2NvdW50X2RhdGUiLCJQYXRoIjp7ImFjY291bnRfaWQiOiJhMTAiLCJkYXRlIjoiMjAyMC0wMS0wMSIsImFkX2lkIjoiMTAwMTIifX1dfQ==")
+                .AfterBookmark("eyJGcmFnbWVudHMiOlt7InRhYmxlTmFtZSI6Im1ldHJpY3MiLCJpbmRleE5hbWUiOiJhY2NvdW50X2RhdGUiLCJQYXRoIjp7ImFjY291bnRfaWQiOiJhMTAiLCJkYXRlIjoiMjAyMC0wMS0wMSIsImFkX2lkIjoiMTAwMTIifX1dfQ==")
                 .GetExporter();
 
             await exporter.PrintAsync();

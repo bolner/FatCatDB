@@ -15,32 +15,22 @@
 */
 using System;
 using System.Linq;
-using System.Collections.Generic;
 using System.Linq.Expressions;
 using System.Threading.Tasks;
 
 namespace FatCatDB {
     /// <summary>
-    /// A query for fetching data from the database
+    /// A query for deleting records
     /// </summary>
     /// <typeparam name="T">An annotated class of a database table record</typeparam>
     public class Query<T> where T : class, new() {
-        internal Table<T> Table { get; }
-        internal Dictionary<int, string> IndexFilters { get; } = new Dictionary<int, string>();
-        internal List<Func<T, bool>> FlexFilters { get; } = new List<Func<T, bool>>();
-        private Bookmark bookmark = null;
-        internal Bookmark Bookmark { get { return bookmark; } }
-        private Int64 queryLimit = 0;
-        internal Int64 QueryLimit { get { return queryLimit; } }
-        internal List<Tuple<int, SortingDirection>> Sorting { get; } = new List<Tuple<int, SortingDirection>>();
-        internal IndexPriority? IndexPriority = null;
-        internal string HintedIndex = null;
+        internal QueryBase<T> QueryBase { get; }
 
         /// <summary>
         /// Constructor
         /// </summary>
         public Query(Table<T> table) {
-            this.Table = table;
+            this.QueryBase = new QueryBase<T>(table);
         }
 
         /// <summary>
@@ -52,7 +42,7 @@ namespace FatCatDB {
         /// <param name="property">Filter by this column of the table</param>
         /// <param name="value">Exact match with this value</param>
         public Query<T> Where(Expression<Func<T, object>> property, object value) {
-            IndexFilters[Table.GetPropertyIndex(Table.GetPropertyName(property))] = Table.ConvertValueToString(value);
+            this.QueryBase.Where(property, value);
             
             return this;
         }
@@ -65,9 +55,66 @@ namespace FatCatDB {
         /// </summary>
         /// <param name="filterExpression">An arbitrary expression, involving the columns of the table.</param>
         public Query<T> FlexFilter(Func<T, bool> filterExpression) {
-            this.FlexFilters.Add(filterExpression);
+            this.QueryBase.FlexFilter(filterExpression);
 
             return this;
+        }
+
+        /// <summary>
+        /// Add a sorting directive for a specific field.
+        /// Multiple field sorting is supported.
+        /// </summary>
+        public Query<T> OrderByAsc(Expression<Func<T, object>> property) {
+            this.QueryBase.OrderByAsc(property);
+
+            return this;
+        }
+
+        /// <summary>
+        /// Add a sorting directive for a specific field.
+        /// Multiple field sorting is supported.
+        /// </summary>
+        public Query<T> OrderByDesc(Expression<Func<T, object>> property) {
+            this.QueryBase.OrderByDesc(property);
+
+            return this;
+        }
+
+        /// <summary>
+        /// Tells the query planner how to select the best index:
+        /// by filtering or by sorting. The defult is the filtering
+        /// priority, which should be used when a minority of the
+        /// records are supposed to be returned. Use sorting priority
+        /// when you expect to query back most of the records in
+        /// a specific order.
+        /// This setting is ignored if you hint a specific index
+        /// using 'HintIndex'.
+        /// </summary>
+        public Query<T> HintIndexPriority(IndexPriority priority) {
+            this.QueryBase.HintIndexPriority(priority);
+
+            return this;
+        }
+
+        /// <summary>
+        /// Tells the query planner which index to use. Use the
+        /// same name as in the annotation of the record class.
+        /// If this option is set, then the 'HintIndexPriority'
+        /// setting is ignored.
+        /// </summary>
+        public Query<T> HintIndex(string indexName) {
+            this.QueryBase.HintIndex(indexName);
+
+            return this;
+        }
+
+        /// <summary>
+        /// Returns a user-friendly text that describes the query plan.
+        /// </summary>
+        public string GetQueryPlan() {
+            var plan = new QueryPlan<T>(this.QueryBase);
+
+            return plan.ToString();
         }
 
         /// <summary>
@@ -75,7 +122,7 @@ namespace FatCatDB {
         /// the queried items.
         /// </summary>
         public Cursor<T> GetCursor() {
-            return new Cursor<T>(this);
+            return new Cursor<T>(this.QueryBase);
         }
 
         /// <summary>
@@ -93,101 +140,10 @@ namespace FatCatDB {
         }
 
         /// <summary>
-        /// Limit how many records to return for the
-        /// query. Limit is disabled by default (limit = 0)
-        /// Instead of an 'offset' FatCatDB uses bookmarks.
-        /// See: Query.AfterBookmark(...)
-        /// </summary>
-        /// <param name="limit">How many items to return</param>
-        public Query<T> Limit(Int64 limit) {
-            this.queryLimit = limit;
-
-            return this;
-        }
-
-        /// <summary>
-        /// Continue a previous limited query after a given record.
-        /// This functionality is similar to the "offset" of SQL.
-        /// </summary>
-        /// <param name="bookmark">A bookmark that was returned from a previous limited query.</param>
-        public Query<T> AfterBookmark(string bookmark) {
-            if (bookmark == null) {
-                this.bookmark = null;
-            } else {
-                this.bookmark = Bookmark.FromString(bookmark);
-            }
-            
-            return this;
-        }
-
-        /// <summary>
-        /// Add a sorting directive for a specific field.
-        /// Multiple field sorting is supported.
-        /// </summary>
-        public Query<T> OrderByAsc(Expression<Func<T, object>> property) {
-            var pIndex = Table.GetPropertyIndex(Table.GetPropertyName(property));
-            this.ValidateSortingProperty(pIndex);
-            this.Sorting.Add(Tuple.Create(pIndex, SortingDirection.Ascending));
-
-            return this;
-        }
-
-        /// <summary>
-        /// Add a sorting directive for a specific field.
-        /// Multiple field sorting is supported.
-        /// </summary>
-        public Query<T> OrderByDesc(Expression<Func<T, object>> property) {
-            var pIndex = Table.GetPropertyIndex(Table.GetPropertyName(property));
-            this.ValidateSortingProperty(pIndex);
-            this.Sorting.Add(Tuple.Create(pIndex, SortingDirection.Descending));
-
-            return this;
-        }
-
-        /// <summary>
-        /// Checks whether the user tries to sort by a column of which
-        /// type doesn't implement the IComparable interface.
-        /// </summary>
-        /// <param name="propertyIndex">The index of the property/column</param>
-        private void ValidateSortingProperty(int propertyIndex) {
-            if (!(typeof(IComparable).IsAssignableFrom(Table.GetRealPropertyType(propertyIndex)))) {
-                var columnName = Table.ColumnNames[propertyIndex];
-                throw new FatCatException($"Tried to order by column '{Table.Annotation.Name}.{columnName}'"
-                    + " which has a type that doesn't implement the IComparable interface.");
-            }
-        }
-
-        /// <summary>
-        /// Tells the query planner how to select the best index:
-        /// by filtering or by sorting. The defult is the filtering
-        /// priority, which should be used when a minority of the
-        /// records are supposed to be returned. Use sorting priority
-        /// when you expect to query back most of the records in
-        /// a specific order.
-        /// This setting is ignored if you hint a specific index
-        /// using 'HintIndex'.
-        /// </summary>
-        public Query<T> HintIndexPriority(IndexPriority priority) {
-            this.IndexPriority = priority;
-            return this;
-        }
-
-        /// <summary>
-        /// Tells the query planner which index to use. Use the
-        /// same name as in the annotation of the record class.
-        /// If this option is set, then the 'HintIndexPriority'
-        /// setting is ignored.
-        /// </summary>
-        public Query<T> HintIndex(string indexName) {
-            this.HintedIndex = indexName;
-            return this;
-        }
-
-        /// <summary>
         /// Creates an Exporter instance
         /// </summary>
         public Exporter<T> GetExporter() {
-            return new Exporter<T>(Table, this.GetCursor());
+            return new Exporter<T>(this.QueryBase.Table, this.GetCursor());
         }
 
         /// <summary>
@@ -205,12 +161,27 @@ namespace FatCatDB {
         }
 
         /// <summary>
-        /// Returns a user-friendly text that describes the query plan.
+        /// Limit how many records to return for the
+        /// query. Limit is disabled by default (limit = 0)
+        /// Instead of an 'offset' FatCatDB uses bookmarks.
+        /// See: Query.AfterBookmark(...)
         /// </summary>
-        public string GetQueryPlan() {
-            var plan = new QueryPlan<T>(this);
+        /// <param name="limit">How many items to return</param>
+        public Query<T> Limit(Int64 limit) {
+            this.QueryBase.Limit(limit);
 
-            return plan.ToString();
+            return this;
+        }
+
+        /// <summary>
+        /// Continue a previous limited query after a given record.
+        /// This functionality is similar to the "offset" of SQL.
+        /// </summary>
+        /// <param name="bookmark">A bookmark that was returned from a previous limited query.</param>
+        public Query<T> AfterBookmark(string bookmark) {
+            this.QueryBase.AfterBookmark(bookmark);
+            
+            return this;
         }
     }
 }

@@ -32,6 +32,8 @@ namespace FatCatDB {
         private int parallelism;
         private Exception exception = null;
         private Func<T, T, T> updateEventHandler = null;
+        private QueryBase<T> updateQuery = null;
+        private QueryBase<T> deleteQuery = null;
 
         private Dictionary<string, PacketPlan> packetPlans = new Dictionary<string, PacketPlan>();
 
@@ -280,6 +282,33 @@ namespace FatCatDB {
         /// </summary>
         public void OnUpdate(Func<T, T, T> eventHandler) {
             this.updateEventHandler = eventHandler;
+        }
+
+        /// <summary>
+        /// Allows to specify records to be updated for this table during the commit phase.
+        /// Use the OnUpdate() method to specify what should happen with the updated
+        /// records.
+        /// </summary>
+        public QueryBase<T> Update() {
+            this.updateQuery = new QueryBase<T>(this.table);
+
+            return this.updateQuery;
+        }
+
+        /// <summary>
+        /// Allows to specify records to be deleted for this table during the commit phase.
+        /// </summary>
+        public QueryBase<T> Delete() {
+            this.deleteQuery = new QueryBase<T>(this.table);
+
+            return this.deleteQuery;
+        }
+
+        /// <summary>
+        /// Removes all records from this table during the commit phase.
+        /// </summary>
+        public void Truncate() {
+            // ?
         }
     }
 }
