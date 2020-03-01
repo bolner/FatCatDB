@@ -17,6 +17,8 @@ var cursor = db.Metrics.Query()
     .FlexFilter(x => x.Revenue > x.Cost * 2.2 && x.Impressions > 10)
     .OrderByAsc(x => x.CampaignID)
     .OrderByDesc(x => x.Cost)
+    .Limit(100)
+    .AfterBookmark(bookmark)
     .GetCursor();
 
 foreach(var item in cursor) {
@@ -34,6 +36,7 @@ foreach(var item in cursor) {
 - [Creating a database context class](#creating-a-database-context-class)
 - [Inserting and modifying data](#inserting-and-modifying-data)
 - [Queries](#queries)
+- [Paging with bookmarks](#paging-with-bookmarks)
 - [Query plans](#query-plans)
 - [Atomic operations with the OnUpdate event](#atomic-operations-with-the-onupdate-event)
 - [Making fields unchangeable using OnUpdate](#making-fields-unchangeable-using-onupdate)
@@ -239,11 +242,67 @@ Example directive | Description
 `.FlexFilter(x => x.Cost > x.Revenue && x.Impressions > 10)` | In flex filters, you can specify an arbitrary expression over the columns. This filtering is slow as it doesn't use the indices.
 `.OrderByAsc(x => x.Budget)` `.OrderByDesc(x => x.Budget)` | Ordering by a column in ascending or descending way. You can append multiple sorting directives to sort over multiple fields, in which case the order of the directives is important.
 `.Limit(limit)` | The limit value specifies the maximum number of items to return. For the `offset` see the next line.
-`.AfterBookmark(bookmark)` | Instead of an `offset` value, FatCatDB uses strings called `Bookmarks`. They provide a much more efficient way to continue a query than offset values.
+`.AfterBookmark(bookmark)` | Instead of an `offset` value, FatCatDB uses strings called `Bookmarks`. They provide a much more efficient way to continue a query than offset values. See the chapter [Paging with bookmarks](#paging-with-bookmarks).
 `.HintIndexPriority( IndexPriority.Sorting )` | Hinting an index selection algorithm. See the section [Hinting the query planner](#hinting-the-query-planner) for more details.
 `.HintIndex("index_name")` | Hinting a specific index. See the section [Hinting the query planner](#hinting-the-query-planner) for more details.
 
 Note that since the cursor is an enumerable of record objects, you can use `Linq expressions` on them. But if you do that, then the whole result set gets loaded into the memory (if there's enough memory for it). Therefore it's recommended to use Linq only in the presence of a `Limit` directive.
+
+# Paging with bookmarks
+
+Paging in most database systems is done using the combination of a `limit` and an `offset` directive.
+Instead of `offset` FatCatDB uses bookmarks. Basically a bookmark describes the last item fetched during a query,
+so the query can be continued later in a different request. Bookmarks are more efficient than using offsets.
+
+You can get a bookmark from either a cursor or from an exporter:
+
+```csharp
+var cursor = db.People.Query()
+    .Where(x => x.City, "Amsterdam")
+    .Where(x => x.Age, 25)
+    .OrderByAsc(x => x.ID)
+    .Limit(10)
+    .GetCursor();
+
+// ... process data ...
+
+string bookmark = cursor.GetBookMark();
+```
+
+```csharp
+var exporter = db.People.Query()
+    .Where(x => x.City, "Amsterdam")
+    .Where(x => x.Age, 25)
+    .OrderByAsc(x => x.ID)
+    .Limit(10)
+    .GetExporter();
+
+// ... export data ...
+
+string bookmark = exporter.GetBookMark();
+```
+
+The bookmark is something like:
+```
+eyJGcmFnbWVudHMiOlt7InRhYmxlTmFtZSI6InRlc3RfZXZlbnQiLCJpbmRleE5hbWUiOiJhY2NvdW50X2RhdGUiLCJQYXRoIjp7ImFjY291bnRfaWQiOiJhMTAiLCJkYXRlIjoiMjAyMC0wMS0wMSIsImFkX2lkIjoiMTAwMTIifX1dfQ==
+```
+
+Then to continue the same query, supply the bookmark using the `AfterBookmark` directive:
+
+```csharp
+var cursor = db.People.Query()
+    .Where(x => x.City, "Amsterdam")
+    .Where(x => x.Age, 25)
+    .OrderByAsc(x => x.ID)
+    .Limit(10)
+    .AfterBookmark(bookmark)
+    .GetCursor();
+```
+
+If the bookmark is `null` then it is disabled:
+```csharp
+    .AfterBookmark(null)
+```
 
 # Query plans
 
@@ -256,7 +315,7 @@ var plan = db.Metrics.Query()
     .OrderByAsc(x => x.Date)
     .OrderByAsc(x => x.Cost)
     .FlexFilter(x => x.Impressions > x.Clicks && x.Revenue > 0)
-    .Limit(100, 10)
+    .Limit(100)
     .GetQueryPlan();
 
 Console.Write(plan);
@@ -273,8 +332,7 @@ The response:
     - Apply flex filtering.
     - Apply the sorting directives inside the packets, which weren't used for an index level:
         - cost
-    - Offset: Index of the first record to return: 10
-    - Limit: Number of records to return: 100
+    - Limit: The maximal number of records to return is 100
 ```
 
 # Atomic operations with the OnUpdate event
@@ -494,5 +552,3 @@ $ dotnet pack -c Release
 - Implement query.Delete(), table.Truncate() and db.Drop()
 - Delete packets which became empty after removal of records.
 - Use local thread pool instead of global
-- Instead of "Limit/Offset" use "Limit/After" where "After" is the path
-  of the last record, returned from a previous limited request. (for paging)
