@@ -405,7 +405,7 @@ namespace FatCatDB
         }
 
         /// <summary>
-        /// Return a list of files or directories in a folder.
+        /// Return a list of decoded base- file and directory names in a folder.
         /// </summary>
         /// <param name="folder">Target folder</param>
         /// <param name="asc">Sort the result ascending=true or descending=false</param>
@@ -423,8 +423,8 @@ namespace FatCatDB
                     */
                     files = Directory.EnumerateFiles(folder, "*.tsv.gz", SearchOption.TopDirectoryOnly)
                         .Select(x => {
-                            var fileBase = Path.GetFileName(x).Replace(".tsv.gz", "");
-                            var value = table.ConvertStringToValue(propertyIndex, filenameEncoder.Decode(fileBase));
+                            var fileBase = filenameEncoder.Decode(Path.GetFileName(x).Replace(".tsv.gz", ""));
+                            var value = table.ConvertStringToValue(propertyIndex, fileBase);
                             return Tuple.Create(value, fileBase);
                         });
                 } else {
@@ -433,8 +433,8 @@ namespace FatCatDB
                     */
                     files = Directory.EnumerateDirectories(folder, "*", SearchOption.TopDirectoryOnly)
                         .Select(x => {
-                            var fileBase = Path.GetFileName(x);
-                            var value = table.ConvertStringToValue(propertyIndex, filenameEncoder.Decode(fileBase));
+                            var fileBase = filenameEncoder.Decode(Path.GetFileName(x));
+                            var value = table.ConvertStringToValue(propertyIndex, fileBase);
                             return Tuple.Create(value, fileBase);
                         });
                 }

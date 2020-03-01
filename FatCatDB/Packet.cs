@@ -48,7 +48,7 @@ namespace FatCatDB {
         /// </summary>
         /// <param name="table">DB table</param>
         /// <param name="index">The index which contains the packet in its folder structure</param>
-        /// <param name="indexPath">Actual values of the indexed columns</param>
+        /// <param name="indexPath">String values of the indexed columns</param>
         internal Packet(Table<T> table, TableIndex<T> index, List<string> indexPath) {
             this.table = table;
             this.TableName = table.Annotation.Name;
