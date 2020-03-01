@@ -19,7 +19,7 @@ namespace FatCatDB {
     /// <summary>
     /// The direction of a sorting directive
     /// </summary>
-    public enum SortingDirection {
+    internal enum SortingDirection {
         /// <summary>
         /// Sort by ascending order
         /// </summary>

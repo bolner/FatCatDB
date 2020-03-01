@@ -70,7 +70,7 @@ namespace FatCatDB.Test {
     [Table(Name = "test_event", Unique = "campaign_id, ad_id", NullValue = "n.a.")]
     [TableIndex(Name = "account_date", Columns = "account_id, date")]
     [TableIndex(Name = "date_account", Columns = "date, account_id")]
-    internal class MetricsRecord {
+    public class MetricsRecord {
         [Column(Name = "date")]
         public LocalDate? Date { get; set; }
 
@@ -122,7 +122,7 @@ The design of FatCatDB follows [dependency injection](https://en.wikipedia.org/w
 A minimal database context class contains only your tables:
 
 ```csharp
-internal class DbContext : DbContextBase {
+public class DbContext : DbContextBase {
     public Table<CatRecord> Cats { get; } = new Table<CatRecord>();
     public Table<DogRecord> Dogs { get; } = new Table<DogRecord>();
     public Table<BunnyRecord> Bunnies { get; } = new Table<BunnyRecord>();
@@ -132,7 +132,7 @@ internal class DbContext : DbContextBase {
 But you can also change the default configuration:
 
 ```csharp
-internal class DbContext : DbContextBase {
+public class DbContext : DbContextBase {
     public Table<MetricsRecord> Metrics { get; } = new Table<MetricsRecord>();
     
     protected override void OnConfiguring (TypeConverterSetup typeConverterSetup, Configurator configurator) {

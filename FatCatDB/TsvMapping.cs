@@ -21,19 +21,19 @@ namespace FatCatDB {
         /// <summary>
         /// Mapping TSV column indices to property indices
         /// </summary>
-        public Nullable<int>[] FromTsvToRecord { get; }
+        internal Nullable<int>[] FromTsvToRecord { get; }
 
         /// <summary>
         /// Mapping property indices to TSV column indices
         /// </summary>
-        public Nullable<int>[] FromRecordToTsv { get; }
+        internal Nullable<int>[] FromRecordToTsv { get; }
 
         /// <summary>
         /// Constructor
         /// </summary>
         /// <param name="table">A database table</param>
         /// <param name="header">The header of a TSV file</param>
-        public TsvMapping(Table<T> table, List<string> header) {
+        internal TsvMapping(Table<T> table, List<string> header) {
             Dictionary<string, Nullable<int>> headerIndex = new Dictionary<string, Nullable<int>>();
             Dictionary<string, Nullable<int>> columnIndex = new Dictionary<string, Nullable<int>>();
             FromTsvToRecord = new Nullable<int>[header.Count];
