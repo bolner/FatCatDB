@@ -61,9 +61,7 @@ namespace FatCatDB
         /// </summary>
         private long absoluteRecordIndex = 0;
 
-        private List<Func<T, bool>> filterExpressions;
-        private Dictionary<int, string> indexFilters;
-        private List<Tuple<int, SortingDirection>> sorting;
+        private Dictionary<int, IndexFilter> indexFilters;
 
         /// <summary>
         /// Constructor
@@ -72,8 +70,6 @@ namespace FatCatDB
             this.table = queryPlan.Table;
             this.queryPlan = queryPlan;
             this.paralellism = table.DbContext.Configuration.QueryParallelism;
-            this.filterExpressions = queryPlan.Query.FlexFilters;
-            this.sorting = queryPlan.Query.Sorting;
             this.indexFilters = queryPlan.Query.IndexFilters;
             this.limit = this.queryPlan.Query.QueryLimit;
             var bookmark = this.queryPlan.Query.Bookmark;
@@ -149,22 +145,41 @@ namespace FatCatDB
                     */
                     int propIndex = queryPlan.BestIndex.PropertyIndices[executionPath.Count];
                     bool isLastLevel = executionPath.Count == queryPlan.BestIndex.PropertyIndices.Count - 1;
-                    IComparable afterValue = null;
-
-                    if (this.bookmarkFragment != null && !this.bookmarkApplied) {
-                        string columnName = this.table.ColumnNames[propIndex];
-                        if (!this.bookmarkFragment.Path.ContainsKey(columnName)) {
-                            throw new FatCatException($"Invalid bookmark. Please always use the bookmarks in the same "
-                                + "queries they were created for. (3)");
-                        }
-
-                        afterValue = table.ConvertStringToValue(propIndex, this.bookmarkFragment.Path[columnName]);
-                    }
                     
                     if (this.indexFilters.ContainsKey(propIndex)) {
-                        executionPath.Push(new IndexLevel(this.indexFilters[propIndex]));
+                        var indexFilter = this.indexFilters[propIndex];
+
+                        if (indexFilter.Operator == IndexFilterOperator.Equals_Value1) {
+                            executionPath.Push(new IndexLevel(
+                                table.ConvertValueToString(propIndex, this.indexFilters[propIndex].Value1)
+                            ));
+                        }
+                        else {
+                            // ???????????? TODO
+                            // have to merge logic with the next section
+                            // bookmark and index filter can apply at the same time: interval
+                        }
                     }
                     else {
+                        IndexFilter indexFilter = null;
+
+                        /*
+                            Use the bookmark to continue at the file where we stopped last time.
+                        */
+                        if (this.bookmarkFragment != null && !this.bookmarkApplied) {
+                            string columnName = this.table.ColumnNames[propIndex];
+                            if (!this.bookmarkFragment.Path.ContainsKey(columnName)) {
+                                throw new FatCatException($"Invalid bookmark. Please always use the bookmarks in the same "
+                                    + "queries they were created for. (3)");
+                            }
+
+                            var value = table.ConvertStringToValue(propIndex, this.bookmarkFragment.Path[columnName]);
+                            indexFilter = new IndexFilter(value, null);
+                        }
+                        
+                        /*
+                            Populate the execution path level with file names
+                        */
                         string currentPath = Path.Join(
                             pathPrefix,
                             Path.Join(executionPath.Select(x => x.Current()).Reverse().ToArray())
@@ -175,14 +190,14 @@ namespace FatCatDB
                         if (queryPlan.SortingAssoc.ContainsKey(propIndex)) {
                             if (queryPlan.SortingAssoc[propIndex] == SortingDirection.Ascending) {
                                 // Ascending
-                                files = this.ListFilesInFolder(currentPath, true, isLastLevel, propIndex, afterValue);
+                                files = this.ListFilesInFolder(currentPath, true, isLastLevel, propIndex, indexFilter);
                             } else {
                                 // Descending
-                                files = this.ListFilesInFolder(currentPath, false, isLastLevel, propIndex, afterValue);
+                                files = this.ListFilesInFolder(currentPath, false, isLastLevel, propIndex, indexFilter);
                             }
                         } else {
                             // Ascending by default
-                            files = this.ListFilesInFolder(currentPath, true, isLastLevel, propIndex, afterValue);
+                            files = this.ListFilesInFolder(currentPath, true, isLastLevel, propIndex, indexFilter);
                         }
 
                         if (files.Length < 1) {
@@ -412,7 +427,7 @@ namespace FatCatDB
         /// <param name="isLastLevel">On the last level it lists files, otherwise directories</param>
         /// <param name="propertyIndex">Identifies the column and its type</param>
         /// <param name="afterValue">If not NULL, then return values which come after this value.</param>
-        private string[] ListFilesInFolder(string folder, bool asc, bool isLastLevel, int propertyIndex, IComparable afterValue) {
+        private string[] ListFilesInFolder(string folder, bool asc, bool isLastLevel, int propertyIndex, IndexFilter afterValue) {
             IEnumerable<Tuple<IComparable, string>> files;
             IOrderedEnumerable<Tuple<IComparable, string>> orderedFiles;
 
@@ -443,11 +458,7 @@ namespace FatCatDB
             }
 
             if (afterValue != null) {
-                if (asc) {
-                    files = files.Where(x => x.Item1.CompareTo(afterValue) >= 0);
-                } else {
-                    files = files.Where(x => x.Item1.CompareTo(afterValue) <= 0);
-                }
+                files = files.Where(x => afterValue.IsIntersectedBy(x.Item1, !asc));
             }
 
             if (asc) {

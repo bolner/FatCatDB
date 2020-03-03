@@ -252,11 +252,11 @@ namespace FatCatDB {
             int length = Math.Min(Properties.Length, output.Length);
 
             for (int i = 0; i < length; i++) {
-                output[i] = ConvertValueToString(i, Properties[i].GetValue(record));
+                output[i] = ConvertValueToString(i, (IComparable)Properties[i].GetValue(record));
             }
         }
 
-        internal string ConvertValueToString(int propertyIndex, object value) {
+        internal string ConvertValueToString(int propertyIndex, IComparable value) {
             if (value == null) {
                 return nullValue;
             }
@@ -266,7 +266,13 @@ namespace FatCatDB {
                 return (string)value;
             }
 
-            return (string)conversionTable_ToStr[propertyIndex]((IComparable)value);
+            try {
+                return (string)conversionTable_ToStr[propertyIndex](value);
+            } catch (Exception ex) {
+                throw new FatCatException($"Failed to convert value for column '{this.ColumnNames[propertyIndex]}' to "
+                    + $"string. The following error was thrown: '{ex.Message}'. Please double check the type "
+                    + "conversion functions for the type of that specific column.", ex);
+            }
         }
 
         /// <summary>
@@ -292,52 +298,7 @@ namespace FatCatDB {
             }
         }
 
-        internal string ConvertValueToString(object value) {
-            if (value == null) {
-                return nullValue;
-            }
-
-            var valueType = value.GetType().Name;
-            var stringType = typeof(string).Name;
-
-            if (valueType == typeof(string).Name) {
-                return (string)value;
-            }
-
-            return (string)DbContext.TypeConverter.ConvertType(valueType, stringType, (IComparable)value);
-        }
-
-        internal string GetPropertyValueAsString(T record, int propertyIndex) {
-            return ConvertValueToString(propertyIndex, Properties[propertyIndex].GetValue(record));
-        }
-
-        internal string GetPropertyTypeName(string propertyName) {
-            int propertyIndex = -1;
-            propertyNameToIndex.TryGetValue(propertyName, out propertyIndex);
-
-            if (propertyIndex == -1) {
-                throw new FatCatException($"Table::GetPropertyTypeName(): Unknown property '{propertyName}' for table '{this.Annotation.Name}'.");
-            }
-
-            return Properties[propertyIndex].PropertyType.Name;
-        }
-
-        internal int GetPropertyIndex(string propertyName) {
-            int propertyIndex = -1;
-            propertyNameToIndex.TryGetValue(propertyName, out propertyIndex);
-
-            if (propertyIndex == -1) {
-                throw new FatCatException($"Table::GetPropertyIndex(): Unknown property '{propertyName}' for table '{this.Annotation.Name}'.");
-            }
-
-            return propertyIndex;
-        }
-
-        /// <summary>
-        /// Returns the property name from the passed lambda expression.
-        /// </summary>
-        /// <param name="property">A lambda expressions that resolves to a table property.</param>
-        internal string GetPropertyName(Expression<Func<T, object>> property) {
+        internal int GetPropertyIndex(Expression<Func<T, object>> property) {
             string name = null;
             object x = property.Body;
 
@@ -353,7 +314,14 @@ namespace FatCatDB {
                 throw new FatCatException("Expected a 'Property' in a lambda expression, but received something else.");
             }
 
-            return name;
+            int propertyIndex = -1;
+            propertyNameToIndex.TryGetValue(name, out propertyIndex);
+
+            if (propertyIndex == -1) {
+                throw new FatCatException($"Unknown property '{name}' passed in a lambda expression for table '{this.Annotation.Name}'.");
+            }
+
+            return propertyIndex;
         }
 
         /// <summary>
@@ -386,7 +354,7 @@ namespace FatCatDB {
 
             foreach(int propertyIndex in uniquePropertyIndices) {
                 values.Add(
-                    ConvertValueToString(propertyIndex, Properties[propertyIndex].GetValue(record))
+                    ConvertValueToString(propertyIndex, (IComparable)Properties[propertyIndex].GetValue(record))
                 );
             }
 
@@ -401,7 +369,7 @@ namespace FatCatDB {
 
             foreach(int propertyIndex in index.PropertyIndices) {
                 path.Add(
-                    ConvertValueToString(propertyIndex, Properties[propertyIndex].GetValue(record))
+                    ConvertValueToString(propertyIndex, (IComparable)Properties[propertyIndex].GetValue(record))
                 );
             }
 
@@ -417,7 +385,7 @@ namespace FatCatDB {
             foreach(int propertyIndex in index.PropertyIndices) {
                 path[ColumnNames[propertyIndex]] = ConvertValueToString(
                     propertyIndex,
-                    Properties[propertyIndex].GetValue(record)
+                    (IComparable)Properties[propertyIndex].GetValue(record)
                 );
             }
 
@@ -434,7 +402,7 @@ namespace FatCatDB {
             foreach(int propertyIndex in uniquePropertyIndices) {
                 path[ColumnNames[propertyIndex]] = ConvertValueToString(
                     propertyIndex,
-                    Properties[propertyIndex].GetValue(record)
+                    (IComparable)Properties[propertyIndex].GetValue(record)
                 );
             }
 

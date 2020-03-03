@@ -41,7 +41,7 @@ namespace FatCatDB {
         /// </summary>
         /// <param name="property">Filter by this column of the table</param>
         /// <param name="value">Exact match with this value</param>
-        public Query<T> Where(Expression<Func<T, object>> property, object value) {
+        public Query<T> Where(Expression<Func<T, object>> property, IComparable value) {
             this.QueryBase.Where(property, value);
             
             return this;

@@ -24,7 +24,7 @@ namespace FatCatDB {
     /// modifying and deleting records from a table.
     /// </summary>
     /// <typeparam name="T">Annotated class of a database record table</typeparam>
-    public class Transaction<T> where T : class, new() {
+    public partial class Transaction<T> where T : class, new() {
         private Table<T> table;
         private List<T> records = new List<T>();
         private Dictionary<string, bool> remove = new Dictionary<string, bool>();
@@ -34,6 +34,7 @@ namespace FatCatDB {
         private Func<T, T, T> updateEventHandler = null;
         private UpdateQuery<T> updateQuery = null;
         private DeleteQuery<T> deleteQuery = null;
+        private Action<T> updater = null;
 
         private Dictionary<string, PacketPlan> packetPlans = new Dictionary<string, PacketPlan>();
 
@@ -136,11 +137,21 @@ namespace FatCatDB {
                 Update query
             */
             if (this.updateQuery != null) {
-                
+                var queryPlan = new QueryPlan<T>(this.updateQuery.QueryBase);
+                var cursor = new PacketCursor(queryPlan);
+
+                Parallel.ForEach(
+                    cursor,
+                    new ParallelOptions {MaxDegreeOfParallelism = this.parallelism},
+                    packet => {
+                        var task = new UpdateTask(packet, queryPlan, this.updater);
+                        task.Work();
+                    }
+                );
             }
 
             /*
-                Insert, update or remove (per packet)
+                Upsert or remove (specific records)
             */
             if (this.packetPlans.Count > 0) {
                 Parallel.ForEach(
@@ -305,8 +316,9 @@ namespace FatCatDB {
         /// Use the OnUpdate() method to specify what should happen with the updated
         /// records.
         /// </summary>
-        public UpdateQuery<T> Update() {
+        public UpdateQuery<T> Update(Action<T> updater) {
             this.updateQuery = new UpdateQuery<T>(this.table, this);
+            this.updater = updater;
 
             return this.updateQuery;
         }

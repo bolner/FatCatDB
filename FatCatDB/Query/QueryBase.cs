@@ -26,7 +26,7 @@ namespace FatCatDB {
     /// <typeparam name="T">An annotated class of a database table record</typeparam>
     internal class QueryBase<T> where T : class, new() {
         internal Table<T> Table { get; }
-        internal Dictionary<int, string> IndexFilters { get; } = new Dictionary<int, string>();
+        internal Dictionary<int, IndexFilter> IndexFilters { get; } = new Dictionary<int, IndexFilter>();
         internal List<Func<T, bool>> FlexFilters { get; } = new List<Func<T, bool>>();
         private Bookmark bookmark = null;
         internal Bookmark Bookmark { get { return bookmark; } }
@@ -51,8 +51,12 @@ namespace FatCatDB {
         /// </summary>
         /// <param name="property">Filter by this column of the table</param>
         /// <param name="value">Exact match with this value</param>
-        internal QueryBase<T> Where(Expression<Func<T, object>> property, object value) {
-            IndexFilters[Table.GetPropertyIndex(Table.GetPropertyName(property))] = Table.ConvertValueToString(value);
+        internal QueryBase<T> Where(Expression<Func<T, object>> property, IComparable value) {
+
+            // TODO: if string, but the original type isn't string, then convert to that
+            // TODO: merge these: Table.GetPropertyIndex(Table.GetPropertyName(
+
+            IndexFilters[Table.GetPropertyIndex(property)] = new IndexFilter(value);
             
             return this;
         }
@@ -103,7 +107,7 @@ namespace FatCatDB {
         /// Multiple field sorting is supported.
         /// </summary>
         internal QueryBase<T> OrderByAsc(Expression<Func<T, object>> property) {
-            var pIndex = Table.GetPropertyIndex(Table.GetPropertyName(property));
+            var pIndex = Table.GetPropertyIndex(property);
             this.ValidateSortingProperty(pIndex);
             this.Sorting.Add(Tuple.Create(pIndex, SortingDirection.Ascending));
 
@@ -115,7 +119,7 @@ namespace FatCatDB {
         /// Multiple field sorting is supported.
         /// </summary>
         internal QueryBase<T> OrderByDesc(Expression<Func<T, object>> property) {
-            var pIndex = Table.GetPropertyIndex(Table.GetPropertyName(property));
+            var pIndex = Table.GetPropertyIndex(property);
             this.ValidateSortingProperty(pIndex);
             this.Sorting.Add(Tuple.Create(pIndex, SortingDirection.Descending));
 

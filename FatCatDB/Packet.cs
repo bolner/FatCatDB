@@ -211,20 +211,7 @@ namespace FatCatDB {
                     Filtering by 'Where' expressions
                 */
                 if (queryPlan != null) {
-                    notMatching = false;
-
-                    foreach(var filter in queryPlan.FreeIndexFilters) {
-                        tsvColumnIndex = tsvMapping.FromRecordToTsv[filter.Key];
-
-                        if (tsvColumnIndex == null || line[(int)tsvColumnIndex] != filter.Value) {
-                            notMatching = true;
-                            break;
-                        }
-                    }
-
-                    if (notMatching) {
-                        continue;
-                    }
+                    /********************************/
                 }
 
                 var record = new T();
@@ -429,6 +416,25 @@ namespace FatCatDB {
         /// (Filtering might have been applied.)
         /// </summary>
         internal T[] GetRecords() {
+            return this.lines.ToArray();
+        }
+
+        internal T[] GetFilteredRecords(QueryPlan<T> queryPlan) {
+            List<T> result = new List<T>();
+            bool notMatching;
+
+            foreach(var record in this.lines) {
+                notMatching = false;
+
+                foreach(var filter in queryPlan.FreeIndexFilters) {
+                    
+                }
+
+                if (notMatching) {
+                    continue;
+                }
+            }
+
             return this.lines.ToArray();
         }
     }
