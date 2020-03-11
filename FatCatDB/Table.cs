@@ -66,8 +66,9 @@ namespace FatCatDB {
         /// Null values are stored in the DB as this text.
         /// The default can be changed by a Table(NullValue="") annotation on the table.
         /// </summary>
+        internal string NullValue { get { return nullValue; }}
         private string nullValue = "";
-
+        
         /// <summary>
         /// This is called by the DbContextBase after it registered
         /// all its tables.

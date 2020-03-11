@@ -51,11 +51,4 @@ namespace FatCatDB {
         /// </summary>
         Sorting
     }
-
-    internal enum IndexFilterOperator {
-        Equals_Value1,
-        After_Value1,
-        Before_Value2,
-        Between_Value1_Value2
-    }
 }

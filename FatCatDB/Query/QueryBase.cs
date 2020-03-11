@@ -26,7 +26,7 @@ namespace FatCatDB {
     /// <typeparam name="T">An annotated class of a database table record</typeparam>
     internal class QueryBase<T> where T : class, new() {
         internal Table<T> Table { get; }
-        internal Dictionary<int, IndexFilter> IndexFilters { get; } = new Dictionary<int, IndexFilter>();
+        internal Dictionary<int, PathFilter<T>> IndexFilters { get; } = new Dictionary<int, PathFilter<T>>();
         internal List<Func<T, bool>> FlexFilters { get; } = new List<Func<T, bool>>();
         private Bookmark bookmark = null;
         internal Bookmark Bookmark { get { return bookmark; } }
@@ -43,27 +43,56 @@ namespace FatCatDB {
             this.Table = table;
         }
 
+        private PathFilter<T> GetOrAddPathFilter(Expression<Func<T, object>> property) {
+            int propIndex = Table.GetPropertyIndex(property);
+            if (!this.IndexFilters.ContainsKey(propIndex)) {
+                this.IndexFilters[propIndex] = new PathFilter<T>(this.Table, propIndex);
+            }
+
+            return this.IndexFilters[propIndex];
+        }
+
         /// <summary>
-        /// Fast filtering, using indexes. If you would like to filter using
+        /// Fast filtering, using indices. If you would like to filter using
         /// arbitrary expressions, then use the 'FlexFilter' method instead.
         /// The 'FlexFilter' is slower than the 'Where', because that's not
-        /// using indexes.
+        /// using indices.
         /// </summary>
         /// <param name="property">Filter by this column of the table</param>
         /// <param name="value">Exact match with this value</param>
         internal QueryBase<T> Where(Expression<Func<T, object>> property, IComparable value) {
+            this.GetOrAddPathFilter(property).EqualsValue(value);
+            
+            return this;
+        }
 
-            // TODO: if string, but the original type isn't string, then convert to that
-            // TODO: merge these: Table.GetPropertyIndex(Table.GetPropertyName(
+        internal QueryBase<T> WhereMin(Expression<Func<T, object>> property, IComparable value) {
+            this.GetOrAddPathFilter(property).GreaterThanOrEquals(value);
+            
+            return this;
+        }
 
-            IndexFilters[Table.GetPropertyIndex(property)] = new IndexFilter(value);
+        internal QueryBase<T> WhereMax(Expression<Func<T, object>> property, IComparable value) {
+            this.GetOrAddPathFilter(property).LessThanOrEquals(value);
+            
+            return this;
+        }
+
+        internal QueryBase<T> WhereBetween(Expression<Func<T, object>> property, IComparable lower, IComparable upper) {
+            this.GetOrAddPathFilter(property).Between(lower, upper);
+            
+            return this;
+        }
+
+        internal QueryBase<T> WhereRegEx(Expression<Func<T, object>> property, string pattern) {
+            this.GetOrAddPathFilter(property).MatchRegEx(pattern);
             
             return this;
         }
 
         /// <summary>
-        /// Generic filtering. In contrary to the 'Where' method, the 'FlexFilter' method
-        /// doesn't use indexes, so its query time is linear, but it can handle
+        /// Generic filtering. In contrary to the 'Where' methods, the 'FlexFilter' method
+        /// doesn't use indices, so its query time is linear, but it can handle
         /// arbitrary filter expressions. Please use it in combination with the
         /// 'Where' method for optimal performace.
         /// </summary>

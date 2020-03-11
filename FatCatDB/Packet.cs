@@ -188,7 +188,6 @@ namespace FatCatDB {
             using var gzip = new GZipStream(ms, CompressionMode.Decompress);
             using var tsv = new TsvReader(gzip);
             int lineCount = 0;
-            Nullable<int> tsvColumnIndex = null;
             bool isFirstLine = true;
             bool notMatching = false;
             

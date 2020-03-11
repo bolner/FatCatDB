@@ -61,7 +61,7 @@ namespace FatCatDB
         /// </summary>
         private long absoluteRecordIndex = 0;
 
-        private Dictionary<int, IndexFilter> indexFilters;
+        private Dictionary<int, PathFilter<T>> indexFilters;
 
         /// <summary>
         /// Constructor
@@ -145,69 +145,67 @@ namespace FatCatDB
                     */
                     int propIndex = queryPlan.BestIndex.PropertyIndices[executionPath.Count];
                     bool isLastLevel = executionPath.Count == queryPlan.BestIndex.PropertyIndices.Count - 1;
-                    
-                    if (this.indexFilters.ContainsKey(propIndex)) {
-                        var indexFilter = this.indexFilters[propIndex];
 
-                        if (indexFilter.Operator == IndexFilterOperator.Equals_Value1) {
-                            executionPath.Push(new IndexLevel(
-                                table.ConvertValueToString(propIndex, this.indexFilters[propIndex].Value1)
-                            ));
-                        }
-                        else {
-                            // ???????????? TODO
-                            // have to merge logic with the next section
-                            // bookmark and index filter can apply at the same time: interval
+                    /*
+                        Decide the sorting order
+                    */
+                    bool asc = true;
+
+                    if (queryPlan.SortingAssoc.ContainsKey(propIndex)) {
+                        if (queryPlan.SortingAssoc[propIndex] == SortingDirection.Descending) {
+                            // Descending
+                            asc = false;
                         }
                     }
-                    else {
-                        IndexFilter indexFilter = null;
 
-                        /*
-                            Use the bookmark to continue at the file where we stopped last time.
-                        */
-                        if (this.bookmarkFragment != null && !this.bookmarkApplied) {
-                            string columnName = this.table.ColumnNames[propIndex];
-                            if (!this.bookmarkFragment.Path.ContainsKey(columnName)) {
-                                throw new FatCatException($"Invalid bookmark. Please always use the bookmarks in the same "
-                                    + "queries they were created for. (3)");
-                            }
+                    PathFilter<T> filter;
 
-                            var value = table.ConvertStringToValue(propIndex, this.bookmarkFragment.Path[columnName]);
-                            indexFilter = new IndexFilter(value, null);
+                    if (this.indexFilters.ContainsKey(propIndex)) {
+                        filter = this.indexFilters[propIndex];
+                    } else {
+                        filter = null;
+                    }
+
+                    /*
+                        If the bookmark is active,
+                        use it to continue at the file where we stopped last time.
+                    */
+                    if (this.bookmarkFragment != null && !this.bookmarkApplied) {
+                        if (filter == null) {
+                            filter = new PathFilter<T>(this.table, propIndex);
                         }
                         
-                        /*
-                            Populate the execution path level with file names
-                        */
-                        string currentPath = Path.Join(
-                            pathPrefix,
-                            Path.Join(executionPath.Select(x => x.Current()).Reverse().ToArray())
-                        );
+                        string columnName = this.table.ColumnNames[propIndex];
+                        if (!this.bookmarkFragment.Path.ContainsKey(columnName)) {
+                            throw new FatCatException($"Invalid bookmark. Please always use the bookmarks in the same "
+                                + "queries they were created for. (3)");
+                        }
 
-                        string[] files;
-
-                        if (queryPlan.SortingAssoc.ContainsKey(propIndex)) {
-                            if (queryPlan.SortingAssoc[propIndex] == SortingDirection.Ascending) {
-                                // Ascending
-                                files = this.ListFilesInFolder(currentPath, true, isLastLevel, propIndex, indexFilter);
-                            } else {
-                                // Descending
-                                files = this.ListFilesInFolder(currentPath, false, isLastLevel, propIndex, indexFilter);
-                            }
+                        var value = table.ConvertStringToValue(propIndex, this.bookmarkFragment.Path[columnName]);
+                        if (asc) {
+                            filter.GreaterThanOrEquals(value);
                         } else {
-                            // Ascending by default
-                            files = this.ListFilesInFolder(currentPath, true, isLastLevel, propIndex, indexFilter);
+                            filter.LessThanOrEquals(value);
                         }
-
-                        if (files.Length < 1) {
-                            // If the directory is empty, then turn back
-                            this.Traverse();
-                            continue;
-                        }
-
-                        executionPath.Push(new IndexLevel(files));
                     }
+                    
+                    /*
+                        Populate the execution path level with file names
+                    */
+                    string currentPath = Path.Join(
+                        pathPrefix,
+                        Path.Join(executionPath.Select(x => x.Current()).Reverse().ToArray())
+                    );
+
+                    string[] files = this.ListFilesInFolder(currentPath, asc, isLastLevel, propIndex, filter);
+
+                    if (files.Length < 1) {
+                        // If the directory is empty, then turn back
+                        this.Traverse();
+                        continue;
+                    }
+
+                    executionPath.Push(new IndexLevel(files));
                 }
             } while (executionPath.Count > 0);
 
@@ -427,7 +425,8 @@ namespace FatCatDB
         /// <param name="isLastLevel">On the last level it lists files, otherwise directories</param>
         /// <param name="propertyIndex">Identifies the column and its type</param>
         /// <param name="afterValue">If not NULL, then return values which come after this value.</param>
-        private string[] ListFilesInFolder(string folder, bool asc, bool isLastLevel, int propertyIndex, IndexFilter afterValue) {
+        private string[] 
+        ListFilesInFolder(string folder, bool asc, bool isLastLevel, int propertyIndex, PathFilter<T> afterValue) {
             IEnumerable<Tuple<IComparable, string>> files;
             IOrderedEnumerable<Tuple<IComparable, string>> orderedFiles;
 
@@ -457,9 +456,7 @@ namespace FatCatDB
                 return new string[] { };
             }
 
-            if (afterValue != null) {
-                files = files.Where(x => afterValue.IsIntersectedBy(x.Item1, !asc));
-            }
+            files = files.Where(x => afterValue.Evaluate(x.Item1));
 
             if (asc) {
                 orderedFiles = files.OrderBy(x => x.Item1);

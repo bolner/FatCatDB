@@ -22,7 +22,7 @@ namespace FatCatDB {
     internal class QueryPlan<T> where T : class, new() {
         internal Table<T> Table;
         internal QueryBase<T> Query { get; }
-        internal Dictionary<int, IndexFilter> FreeIndexFilters { get; } = new Dictionary<int, IndexFilter>();
+        internal Dictionary<int, PathFilter<T>> FreeIndexFilters { get; } = new Dictionary<int, PathFilter<T>>();
         internal Dictionary<int, SortingDirection> SortingAssoc { get; } = new Dictionary<int, SortingDirection>();
         internal TableIndex<T> BestIndex { get; }
         internal HashSet<int> IndexFields = new HashSet<int>();
