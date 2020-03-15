@@ -176,8 +176,7 @@ namespace FatCatDB {
         /// <summary>
         /// Decompress the raw data and desirialize the records.
         /// </summary>
-        /// <param name="queryPlan">Optional for queries. Filters the recrods if passed.</param>
-        internal void DeserializeDecompress(QueryPlan<T> queryPlan = null) {
+        internal void DeserializeDecompress() {
             if (rawCompressedData == null) {
                 return;
             }
@@ -189,7 +188,6 @@ namespace FatCatDB {
             using var tsv = new TsvReader(gzip);
             int lineCount = 0;
             bool isFirstLine = true;
-            bool notMatching = false;
             
             while(!tsv.EndOfStream) {
                 var line = tsv.ReadLine();
@@ -206,72 +204,14 @@ namespace FatCatDB {
                     throw new Exception($"Header length and column count mismatch in file '{FullPath}' at line {lineCount + 1}.");
                 }
 
-                /*
-                    Filtering by 'Where' expressions
-                */
-                if (queryPlan != null) {
-                    /********************************/
-                }
-
                 var record = new T();
                 table.LoadFromTSVLine(tsvMapping, record, line);
-
-                /*
-                    Filtering by flex expressions
-                */
-                if (queryPlan != null) {
-                    notMatching = false;
-
-                    foreach(var exp in queryPlan.Query.FlexFilters) {
-                        if (!exp(record)) {
-                            notMatching = true;
-                            break;
-                        }
-                    }
-
-                    if (notMatching) {
-                        continue;
-                    }
-                }
 
                 string unique = table.GetUnique(record);
                 this.data[unique] = record;
                 this.lines.Add(record);
 
                 lineCount++;
-            }
-
-            /*
-                Sort records inside the packet
-            */
-            if (queryPlan != null) {
-                if (queryPlan.FreeSorting.Count > 0) {
-                    var props = table.Properties.ToArray();
-                    
-                    this.lines.Sort((x, y) => {
-                        foreach(var directive in queryPlan.FreeSorting) {
-                            int dir = directive.Item2 == SortingDirection.Ascending ? 1 : -1;
-                            var valueX = props[directive.Item1].GetValue(x);
-                            var valueY = props[directive.Item1].GetValue(y);
-
-                            if (valueX == null && valueY == null) {
-                                continue;
-                            }
-
-                            if (valueX == null) {
-                                return -dir;
-                            }
-
-                            if (valueY == null) {
-                                return dir;
-                            }
-
-                            return ((IComparable)valueX).CompareTo((IComparable)valueY) * dir;
-                        }
-
-                        return 0;
-                    });
-                }
             }
         }
 
@@ -418,23 +358,81 @@ namespace FatCatDB {
             return this.lines.ToArray();
         }
 
-        internal T[] GetFilteredRecords(QueryPlan<T> queryPlan) {
+        /// <summary>
+        /// Returns the record's after applying filters and sorting.
+        /// </summary>
+        /// <param name="queryPlan">Provides information for filtering and sorting.</param>
+        internal List<T> GetFilteredRecords(QueryPlan<T> queryPlan) {
             List<T> result = new List<T>();
             bool notMatching;
+            var properties = this.table.Properties;
 
             foreach(var record in this.lines) {
                 notMatching = false;
 
-                foreach(var filter in queryPlan.FreeIndexFilters) {
-                    
+                /*
+                    Apply the free path filters
+                */
+                foreach(var filter in queryPlan.FreePathFilters) {
+                    var prop = properties[filter.Key];
+
+                    if (!filter.Value.Evaluate((IComparable)prop.GetValue(record))) {
+                        notMatching = true;
+                        break;
+                    }
                 }
 
                 if (notMatching) {
                     continue;
                 }
+
+                /*
+                    Apply the flex filters
+                */
+                foreach(var flexFilter in queryPlan.Query.FlexFilters) {
+                    if (!flexFilter(record)) {
+                        notMatching = true;
+                        break;
+                    }
+                }
+                
+                if (notMatching) {
+                    continue;
+                }
+
+                result.Add(record);
             }
 
-            return this.lines.ToArray();
+            /*
+                Sort records inside the packet
+            */
+            if (queryPlan.FreeSorting.Count > 0) {
+                result.Sort((x, y) => {
+                    foreach(var directive in queryPlan.FreeSorting) {
+                        int dir = directive.Item2 == SortingDirection.Ascending ? 1 : -1;
+                        var valueX = properties[directive.Item1].GetValue(x);
+                        var valueY = properties[directive.Item1].GetValue(y);
+
+                        if (valueX == null && valueY == null) {
+                            continue;
+                        }
+
+                        if (valueX == null) {
+                            return -dir;
+                        }
+
+                        if (valueY == null) {
+                            return dir;
+                        }
+
+                        return ((IComparable)valueX).CompareTo((IComparable)valueY) * dir;
+                    }
+
+                    return 0;
+                });
+            }
+
+            return result;
         }
     }
 }

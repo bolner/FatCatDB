@@ -290,7 +290,7 @@ namespace FatCatDB
                     throw payload.Exception;
                 }
 
-                this.activeRecords = payload.Packet.GetRecords();
+                this.activeRecords = payload.Packet.GetFilteredRecords(this.queryPlan).ToArray();
                 this.activeRecordIndex = FindActiveRecordIndex();
             } while (true);
         }
@@ -335,7 +335,7 @@ namespace FatCatDB
                     throw payload.Exception;
                 }
 
-                this.activeRecords = payload.Packet.GetRecords();
+                this.activeRecords = payload.Packet.GetFilteredRecords(this.queryPlan).ToArray();
                 this.activeRecordIndex = FindActiveRecordIndex();
             } while (true);
         }
@@ -431,9 +431,9 @@ namespace FatCatDB
         /// <param name="asc">Sort the result ascending=true or descending=false</param>
         /// <param name="isLastLevel">On the last level it lists files, otherwise directories</param>
         /// <param name="propertyIndex">Identifies the column and its type</param>
-        /// <param name="afterValue">If not NULL, then return values which come after this value.</param>
+        /// <param name="pathFilter">If not NULL, then return values which come after this value.</param>
         private string[] 
-        ListFilesInFolder(string folder, bool asc, bool isLastLevel, int propertyIndex, PathFilter<T> afterValue) {
+        ListFilesInFolder(string folder, bool asc, bool isLastLevel, int propertyIndex, PathFilter<T> pathFilter) {
             IEnumerable<Tuple<IComparable, string>> files;
             IOrderedEnumerable<Tuple<IComparable, string>> orderedFiles;
 
@@ -463,8 +463,8 @@ namespace FatCatDB
                 return new string[] { };
             }
 
-            if (afterValue != null) {
-                files = files.Where(x => afterValue.Evaluate(x.Item1));
+            if (pathFilter != null) {
+                files = files.Where(x => pathFilter.Evaluate(x.Item1));
             }
             
             if (asc) {

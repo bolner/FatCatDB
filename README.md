@@ -245,13 +245,22 @@ if (person != null) {
 }
 ```
 
-Please find below a complete list of query directives:
+The following are the filters which use the indices, therefore the queries using them are much faster then the ones using the flex-filter only. All of their names start with `Where`:
 
 Example directive | Description
 --- | ---
-`.Where(x => x.Date, "2020-02-09")` | Filtering on a specific value (exact match). This kind of filtering is fast, because it uses the indices. You can use `Where` on both a value of the original type of the column, or on the string representation of it. (See [Adding new types](#adding-new-types) about the string conversion.)
-`.Where(x => x.Date, new LocalDate(2020, 2, 9))` | You can also use the original type of the column in `Where` filters. This also uses the indices.
-`.FlexFilter(x => x.Cost > x.Revenue && x.Impressions > 10)` | In flex filters, you can specify an arbitrary expression over the columns. This filtering is slow as it doesn't use the indices.
+`.Where(x => x.Date, "2020-02-09")` | Filtering on a specific value (exact match). You can use `Where` on both a value of the original type of the column, or on the string representation of it. (See [Adding new types](#adding-new-types) about the string conversion.)
+`.Where(x => x.Date, new LocalDate(2020, 2, 9))` | You can also use the original type of the column in `Where` filters.
+`.WhereMin(x => x.SomeValue, 15)` | Greater than or equals
+`.WhereMax(x => x.SomeValue, 23)` | Less than or equals
+`.WhereBetween(x => x.SomeValue, 15, 23)` | Filtering on an interval (inclusive)
+`.WhereRegEx(x => x.CampaignName, ".*_Q[3-4]{1,1}.*")` | Do a pattern matching on the string representation of the values, using regular expressions.
+
+Here are the remaining directives:
+
+Example directive | Description
+--- | ---
+`.FlexFilter(x => x.Cost > x.Revenue && x.Impressions > 10)` | In flex-filters, you can specify an arbitrary expression over the columns. This filtering doesn't use the indices, so better use it in combination with a `Where` filter.
 `.OrderByAsc(x => x.Budget)` `.OrderByDesc(x => x.Budget)` | Ordering by a column in ascending or descending way. You can append multiple sorting directives to sort over multiple fields, in which case the order of the directives is important.
 `.Limit(limit)` | The limit value specifies the maximum number of items to return. For the `offset` see the next line.
 `.AfterBookmark(bookmark)` | Instead of an `offset` value, FatCatDB uses strings called `Bookmarks`. They provide a much more efficient way to continue a query than offset values. See the chapter [Paging with bookmarks](#paging-with-bookmarks).

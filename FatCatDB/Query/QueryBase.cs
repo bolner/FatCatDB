@@ -53,10 +53,11 @@ namespace FatCatDB {
         }
 
         /// <summary>
+        /// Exact match.
         /// Fast filtering, using indices. If you would like to filter using
         /// arbitrary expressions, then use the 'FlexFilter' method instead.
-        /// The 'FlexFilter' is slower than the 'Where', because that's not
-        /// using indices.
+        /// The 'FlexFilter' is slower than the 'Where' methods, because
+        /// that's not using indices.
         /// </summary>
         /// <param name="property">Filter by this column of the table</param>
         /// <param name="value">Exact match with this value</param>
@@ -66,24 +67,62 @@ namespace FatCatDB {
             return this;
         }
 
+        /// <summary>
+        /// Greater than or equals.
+        /// Fast filtering, using indices. If you would like to filter using
+        /// arbitrary expressions, then use the 'FlexFilter' method instead.
+        /// The 'FlexFilter' is slower than the 'Where' methods, because
+        /// that's not using indices.
+        /// </summary>
+        /// <param name="property">Filter by this column of the table</param>
+        /// <param name="value">Campare to this value</param>
         internal QueryBase<T> WhereMin(Expression<Func<T, object>> property, IComparable value) {
             this.GetOrAddPathFilter(property).GreaterThanOrEquals(value);
             
             return this;
         }
 
+        /// <summary>
+        /// Less than or equals.
+        /// Fast filtering, using indices. If you would like to filter using
+        /// arbitrary expressions, then use the 'FlexFilter' method instead.
+        /// The 'FlexFilter' is slower than the 'Where' methods, because
+        /// that's not using indices.
+        /// </summary>
+        /// <param name="property">Filter by this column of the table</param>
+        /// <param name="value">Campare to this value</param>
         internal QueryBase<T> WhereMax(Expression<Func<T, object>> property, IComparable value) {
             this.GetOrAddPathFilter(property).LessThanOrEquals(value);
             
             return this;
         }
 
+        /// <summary>
+        /// Inclusive interval filtering.
+        /// Fast filtering, using indices. If you would like to filter using
+        /// arbitrary expressions, then use the 'FlexFilter' method instead.
+        /// The 'FlexFilter' is slower than the 'Where' methods, because
+        /// that's not using indices.
+        /// </summary>
+        /// <param name="property">Filter by this column of the table</param>
+        /// <param name="lower">Lowest value of the interval</param>
+        /// <param name="upper">Highest value of the interval</param>
         internal QueryBase<T> WhereBetween(Expression<Func<T, object>> property, IComparable lower, IComparable upper) {
             this.GetOrAddPathFilter(property).Between(lower, upper);
             
             return this;
         }
 
+        /// <summary>
+        /// Regular expression-based pattern filtering on the string
+        /// representation of the values.
+        /// Fast filtering, using indices. If you would like to filter using
+        /// arbitrary expressions, then use the 'FlexFilter' method instead.
+        /// The 'FlexFilter' is slower than the 'Where' methods, because
+        /// that's not using indices.
+        /// </summary>
+        /// <param name="property">Filter by this column of the table</param>
+        /// <param name="pattern">Regular expression pattern</param>
         internal QueryBase<T> WhereRegEx(Expression<Func<T, object>> property, string pattern) {
             this.GetOrAddPathFilter(property).MatchRegEx(pattern);
             
@@ -94,7 +133,7 @@ namespace FatCatDB {
         /// Generic filtering. In contrary to the 'Where' methods, the 'FlexFilter' method
         /// doesn't use indices, so its query time is linear, but it can handle
         /// arbitrary filter expressions. Please use it in combination with the
-        /// 'Where' method for optimal performace.
+        /// 'Where' methods for optimal performace.
         /// </summary>
         /// <param name="filterExpression">An arbitrary expression, involving the columns of the table.</param>
         internal QueryBase<T> FlexFilter(Func<T, bool> filterExpression) {

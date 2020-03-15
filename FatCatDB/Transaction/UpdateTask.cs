@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 
 namespace FatCatDB {
@@ -16,7 +17,7 @@ namespace FatCatDB {
                 this.updater = updater;
             }
 
-            private void Update(T[] records) {
+            private void Update(List<T> records) {
                 foreach(var record in records) {
                     /*
                         Changing indexed fields is not allowed, because
@@ -53,8 +54,8 @@ namespace FatCatDB {
             internal void Work() {
                 using(Locking.GetMutex(packet.FullPath).Lock()) {
                     packet.Load();
-                    packet.DeserializeDecompress(queryPlan);
-                    var records = packet.GetRecords();
+                    packet.DeserializeDecompress();
+                    var records = packet.GetFilteredRecords(this.queryPlan);
 
                     // TODO: records are a subset, filtered load cannot be saved back
                     this.Update(records);
@@ -67,8 +68,8 @@ namespace FatCatDB {
             internal async Task WorkAsync() {
                 using(await Locking.GetMutex(packet.FullPath).LockAsync()) {
                     await packet.LoadAsync();
-                    packet.DeserializeDecompress(queryPlan);
-                    var records = packet.GetRecords();
+                    packet.DeserializeDecompress();
+                    var records = packet.GetFilteredRecords(this.queryPlan);
 
                     // TODO: records are a subset, filtered load cannot be saved back
                     this.Update(records);

@@ -50,7 +50,7 @@ namespace FatCatDB {
                         this.Packet.Load();
                     }
 
-                    this.Packet.DeserializeDecompress(this.queryPlan);
+                    this.Packet.DeserializeDecompress();
                 } catch (Exception ex) {
                     this.exception = ex;
                 }
@@ -64,7 +64,7 @@ namespace FatCatDB {
                         await this.Packet.LoadAsync();
                     }
 
-                    this.Packet.DeserializeDecompress(this.queryPlan);
+                    this.Packet.DeserializeDecompress();
                 } catch (Exception ex) {
                     this.exception = ex;
                 }

@@ -22,7 +22,7 @@ namespace FatCatDB {
     internal class QueryPlan<T> where T : class, new() {
         internal Table<T> Table;
         internal QueryBase<T> Query { get; }
-        internal Dictionary<int, PathFilter<T>> FreeIndexFilters { get; } = new Dictionary<int, PathFilter<T>>();
+        internal Dictionary<int, PathFilter<T>> FreePathFilters { get; } = new Dictionary<int, PathFilter<T>>();
         internal Dictionary<int, SortingDirection> SortingAssoc { get; } = new Dictionary<int, SortingDirection>();
         internal TableIndex<T> BestIndex { get; }
         internal HashSet<int> IndexFields = new HashSet<int>();
@@ -56,7 +56,7 @@ namespace FatCatDB {
             */
             foreach(var item in query.IndexFilters) {
                 if (!IndexFields.Contains(item.Key)) {
-                    this.FreeIndexFilters[item.Key] = item.Value;
+                    this.FreePathFilters[item.Key] = item.Value;
                 }
             }
 
@@ -99,7 +99,7 @@ namespace FatCatDB {
                         currentSorting.Add(Table.ColumnNames[directive.Item1]);
                     }
 
-                    foreach(var index in FreeIndexFilters.Keys) {
+                    foreach(var index in FreePathFilters.Keys) {
                         recommend.Add(Table.ColumnNames[index]);
                     }
 
@@ -296,7 +296,7 @@ namespace FatCatDB {
                 sb.AppendLine($"    - Apply flex filtering.");
             }
 
-            if (this.FreeIndexFilters.Count > 0) {
+            if (this.FreePathFilters.Count > 0) {
                 sb.AppendLine($"    - Apply the 'Where' filters, which weren't used for an index level.");
             }
 

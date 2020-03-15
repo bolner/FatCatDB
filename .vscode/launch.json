@@ -7,7 +7,7 @@
             "request": "launch",
             "preLaunchTask": "build",
             "program": "${workspaceFolder}/IntegrationTests/bin/Debug/netcoreapp3.1/IntegrationTests.dll",
-            "args": ["test/query1"],
+            "args": ["bookmarkTest/queryPage2"],
             "cwd": "${workspaceFolder}/IntegrationTests",
             "console": "internalConsole",
             "stopAtEntry": false
