@@ -25,7 +25,7 @@ namespace FatCatDB {
         private IComparable upper;
         private IComparable equals;
         private bool equalsNull = false;
-        private List<Regex> regexes;
+        private List<Regex> regexes = new List<Regex>();
 
         /// <summary>
         /// Constructor

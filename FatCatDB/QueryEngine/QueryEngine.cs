@@ -197,15 +197,22 @@ namespace FatCatDB
                         Path.Join(executionPath.Select(x => x.Current()).Reverse().ToArray())
                     );
 
-                    string[] files = this.ListFilesInFolder(currentPath, asc, isLastLevel, propIndex, filter);
-
-                    if (files.Length < 1) {
-                        // If the directory is empty, then turn back
-                        this.Traverse();
-                        continue;
+                    if (filter != null && filter.IsStrict()) {
+                        executionPath.Push(new IndexLevel(
+                            filter.GetStrictValueAsString()
+                        ));
                     }
+                    else {
+                        string[] files = this.ListFilesInFolder(currentPath, asc, isLastLevel, propIndex, filter);
 
-                    executionPath.Push(new IndexLevel(files));
+                        if (files.Length < 1) {
+                            // If the directory is empty, then turn back
+                            this.Traverse();
+                            continue;
+                        }
+
+                        executionPath.Push(new IndexLevel(files));
+                    }
                 }
             } while (executionPath.Count > 0);
 
@@ -456,8 +463,10 @@ namespace FatCatDB
                 return new string[] { };
             }
 
-            files = files.Where(x => afterValue.Evaluate(x.Item1));
-
+            if (afterValue != null) {
+                files = files.Where(x => afterValue.Evaluate(x.Item1));
+            }
+            
             if (asc) {
                 orderedFiles = files.OrderBy(x => x.Item1);
             } else {
