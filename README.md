@@ -1,7 +1,7 @@
 FatCatDB
 ========
 
-`- This project is still in its beta phase. If you want a well tested version, please come back in April. -`
+`- This project is still in its beta phase. If you want a well tested version, please come back in May. -`
 
 FatCatDB is a `zero configuration` database library for `.NET Core`. Its main target segment is `ETL workflows` (e.g. time-series data), therefore it's optimized for high throughput. Supports class-based [schema definition](#creating-a-table-schema), multiple indices per table and fluid, object-oriented query expressions. One would use it for a smaller project to avoid managing a PostgreSQL or another full-fledged database system. With this library your project will already have data storage capability after just cloned from a GIT repo. You don't need to create and maintain Docker images for a database server.
 
