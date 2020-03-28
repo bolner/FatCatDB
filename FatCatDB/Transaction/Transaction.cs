@@ -196,6 +196,8 @@ namespace FatCatDB {
             records.Clear();
             remove.Clear();
             packetPlans.Clear();
+            this.deleteQuery = null;
+            this.updateQuery = null;
 
             if (this.exception != null) {
                 this.exception = null;
@@ -289,6 +291,8 @@ namespace FatCatDB {
             records.Clear();
             remove.Clear();
             packetPlans.Clear();
+            this.deleteQuery = null;
+            this.updateQuery = null;
 
             if (this.exception != null) {
                 this.exception = null;
