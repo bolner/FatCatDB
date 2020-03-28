@@ -49,7 +49,7 @@ namespace FatCatDB {
         /// <param name="table">DB table</param>
         /// <param name="index">The index which contains the packet in its folder structure</param>
         /// <param name="indexPath">String values of the indexed columns</param>
-        internal Packet(Table<T> table, TableIndex<T> index, List<string> indexPath) {
+        internal Packet(Table<T> table, TableIndex<T> index, IEnumerable<string> indexPath) {
             this.table = table;
             this.TableName = table.Annotation.Name;
             this.IndexName = index.Name;
@@ -123,6 +123,21 @@ namespace FatCatDB {
         /// </summary>
         internal void Remove(string unique) {
             this.data.Remove(unique);
+        }
+
+        /// <summary>
+        /// Returns true if the packet is empty. (contains no records)
+        /// </summary>
+        internal bool IsEmpty() {
+            return this.data.Count == 0;
+        }
+
+        /// <summary>
+        /// When a packet has no more records, then
+        /// use this method to delete its gzip file.
+        /// </summary>
+        internal void DeletePacketFile() {
+            File.Delete(this.FullPath);
         }
 
         /// <summary>
@@ -361,8 +376,8 @@ namespace FatCatDB {
         /// <summary>
         /// Returns the record's after applying filters and sorting.
         /// </summary>
-        /// <param name="queryPlan">Provides information for filtering and sorting.</param>
-        internal List<T> GetFilteredRecords(QueryPlan<T> queryPlan) {
+        /// <param name="packetQuery">Provides information for filtering and sorting.</param>
+        internal List<T> GetFilteredRecords(PacketQuery<T> packetQuery) {
             List<T> result = new List<T>();
             bool notMatching;
             var properties = this.table.Properties;
@@ -373,7 +388,7 @@ namespace FatCatDB {
                 /*
                     Apply the free path filters
                 */
-                foreach(var filter in queryPlan.FreePathFilters) {
+                foreach(var filter in packetQuery.PathFilters) {
                     var prop = properties[filter.Key];
 
                     if (!filter.Value.Evaluate((IComparable)prop.GetValue(record))) {
@@ -389,7 +404,7 @@ namespace FatCatDB {
                 /*
                     Apply the flex filters
                 */
-                foreach(var flexFilter in queryPlan.Query.FlexFilters) {
+                foreach(var flexFilter in packetQuery.Query.FlexFilters) {
                     if (!flexFilter(record)) {
                         notMatching = true;
                         break;
@@ -406,9 +421,9 @@ namespace FatCatDB {
             /*
                 Sort records inside the packet
             */
-            if (queryPlan.FreeSorting.Count > 0) {
+            if (packetQuery.Sorting.Count > 0) {
                 result.Sort((x, y) => {
-                    foreach(var directive in queryPlan.FreeSorting) {
+                    foreach(var directive in packetQuery.Sorting) {
                         int dir = directive.Item2 == SortingDirection.Ascending ? 1 : -1;
                         var valueX = properties[directive.Item1].GetValue(x);
                         var valueY = properties[directive.Item1].GetValue(y);

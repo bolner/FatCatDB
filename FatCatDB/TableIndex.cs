@@ -23,15 +23,11 @@ namespace FatCatDB {
     /// </summary>
     /// <typeparam name="T">An annotated database table record class</typeparam>
     internal class TableIndex<T> where T : class, new() {
-        private Table<T> table;
-        internal string ClassName { get; }
         internal string Name { get; }
         internal List<int> PropertyIndices { get; }
         internal int Rank { get; }
 
-        public TableIndex(Table<T> table, string className, string name, List<int> propertyIndices, int rank) {
-            this.table = table;
-            this.ClassName = className;
+        public TableIndex(string name, List<int> propertyIndices, int rank) {
             this.Name = name;
             this.PropertyIndices = propertyIndices;
             this.Rank = rank;

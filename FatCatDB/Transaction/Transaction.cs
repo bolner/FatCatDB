@@ -130,7 +130,28 @@ namespace FatCatDB {
                 Delete query
             */
             if (this.deleteQuery != null) {
+                var queryPlan = new QueryPlan<T>(this.deleteQuery.QueryBase);
+                var packetCollector = new PacketCollector<T>(this.table, queryPlan.BestIndex);
+                var cursor = new PacketCursor(queryPlan);
+                var packetQueries = this.GetPacketQueries(this.deleteQuery.QueryBase);
 
+                Parallel.ForEach(
+                    cursor,
+                    new ParallelOptions {MaxDegreeOfParallelism = this.parallelism},
+                    packet => {
+                        var task = new DeleteTask(packet, queryPlan.PacketQuery, packetCollector);
+                        task.Work();
+                    }
+                );
+
+                Parallel.ForEach(
+                    packetCollector,
+                    new ParallelOptions {MaxDegreeOfParallelism = this.parallelism},
+                    packet => {
+                        var task = new DeleteTask(packet, packetQueries[packet.IndexName]);
+                        task.Work();
+                    }
+                );
             }
 
             /*
@@ -138,13 +159,24 @@ namespace FatCatDB {
             */
             if (this.updateQuery != null) {
                 var queryPlan = new QueryPlan<T>(this.updateQuery.QueryBase);
+                var packetCollector = new PacketCollector<T>(this.table, queryPlan.BestIndex);
                 var cursor = new PacketCursor(queryPlan);
+                var packetQueries = this.GetPacketQueries(this.updateQuery.QueryBase);
 
                 Parallel.ForEach(
                     cursor,
                     new ParallelOptions {MaxDegreeOfParallelism = this.parallelism},
                     packet => {
-                        var task = new UpdateTask(packet, queryPlan, this.updater);
+                        var task = new UpdateTask(packet, queryPlan.PacketQuery, this.updater, packetCollector);
+                        task.Work();
+                    }
+                );
+
+                Parallel.ForEach(
+                    packetCollector,
+                    new ParallelOptions {MaxDegreeOfParallelism = this.parallelism},
+                    packet => {
+                        var task = new UpdateTask(packet, packetQueries[packet.IndexName], this.updater);
                         task.Work();
                     }
                 );
@@ -176,10 +208,76 @@ namespace FatCatDB {
         }
 
         /// <summary>
+        /// Generates an associative array for quckly getting a PacketQuery
+        /// for a specific index.
+        /// </summary>
+        private Dictionary<string, PacketQuery<T>> GetPacketQueries(QueryBase<T> queryBase) {
+            var result = new Dictionary<string, PacketQuery<T>>();
+
+            foreach(var index in this.table.GetIndices()) {
+                result[index.Name] = new PacketQuery<T>(index, queryBase);
+            }
+
+            return result;
+        }
+
+        /// <summary>
         /// Save all changes onto the underlying device.
         /// </summary>
         /// <param name="garbageCollection">True = force garbage collection after the commit.</param>
         public async Task CommitAsync(bool garbageCollection = false) {
+            /*
+                Delete query
+            */
+            if (this.deleteQuery != null) {
+                var queryPlan = new QueryPlan<T>(this.deleteQuery.QueryBase);
+                var packetCollector = new PacketCollector<T>(this.table, queryPlan.BestIndex);
+                var cursor = new PacketCursor(queryPlan);
+                var packetQueries = this.GetPacketQueries(this.deleteQuery.QueryBase);
+
+                await cursor.ParallelForEachAsync(
+                    async packet => {
+                        var task = new DeleteTask(packet, queryPlan.PacketQuery, packetCollector);
+                        await task.WorkAsync();
+                    },
+                    maxDegreeOfParallelism: this.parallelism
+                );
+
+                await packetCollector.ParallelForEachAsync(
+                    async packet => {
+                        var task = new DeleteTask(packet, packetQueries[packet.IndexName]);
+                        await task.WorkAsync();
+                    },
+                    maxDegreeOfParallelism: this.parallelism
+                );
+            }
+
+            /*
+                Update query
+            */
+            if (this.updateQuery != null) {
+                var queryPlan = new QueryPlan<T>(this.updateQuery.QueryBase);
+                var packetCollector = new PacketCollector<T>(this.table, queryPlan.BestIndex);
+                var cursor = new PacketCursor(queryPlan);
+                var packetQueries = this.GetPacketQueries(this.updateQuery.QueryBase);
+
+                await cursor.ParallelForEachAsync(
+                    async packet => {
+                        var task = new UpdateTask(packet, queryPlan.PacketQuery, this.updater, packetCollector);
+                        await task.WorkAsync();
+                    },
+                    maxDegreeOfParallelism: this.parallelism
+                );
+
+                await packetCollector.ParallelForEachAsync(
+                    async packet => {
+                        var task = new UpdateTask(packet, packetQueries[packet.IndexName], this.updater);
+                        await task.WorkAsync();
+                    },
+                    maxDegreeOfParallelism: this.parallelism
+                );
+            }
+
             /*
                 Insert, update or remove (per packet)
             */

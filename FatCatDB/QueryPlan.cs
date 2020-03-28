@@ -22,12 +22,10 @@ namespace FatCatDB {
     internal class QueryPlan<T> where T : class, new() {
         internal Table<T> Table;
         internal QueryBase<T> Query { get; }
-        internal Dictionary<int, PathFilter<T>> FreePathFilters { get; } = new Dictionary<int, PathFilter<T>>();
+        internal PacketQuery<T> PacketQuery { get; }
         internal Dictionary<int, SortingDirection> SortingAssoc { get; } = new Dictionary<int, SortingDirection>();
         internal TableIndex<T> BestIndex { get; }
-        internal HashSet<int> IndexFields = new HashSet<int>();
         internal Dictionary<int, SortingDirection> BoundSorting { get; } = new Dictionary<int, SortingDirection>();
-        internal List<Tuple<int, SortingDirection>> FreeSorting { get; } = new List<Tuple<int, SortingDirection>>();
 
         internal QueryPlan(QueryBase<T> query) {
             this.Table = query.Table;
@@ -47,28 +45,11 @@ namespace FatCatDB {
                 this.BestIndex = FindBestIndex((IndexPriority)query.IndexPriority);
             }
             
-            foreach(int propIndex in BestIndex.PropertyIndices) {
-                this.IndexFields.Add(propIndex);
-            }
-            
-            /*
-                Partition the filters
-            */
-            foreach(var item in query.IndexFilters) {
-                if (!IndexFields.Contains(item.Key)) {
-                    this.FreePathFilters[item.Key] = item.Value;
-                }
-            }
+            this.PacketQuery = new PacketQuery<T>(this.BestIndex, query);
 
-            /*
-                Partition the sorting directives
-            */
+            // SortingAssoc
             foreach(var sortingDirective in query.Sorting) {
                 this.SortingAssoc[sortingDirective.Item1] = sortingDirective.Item2;
-
-                if (!IndexFields.Contains(sortingDirective.Item1)) {
-                    this.FreeSorting.Add(sortingDirective);
-                }
             }
 
             /*
@@ -81,7 +62,7 @@ namespace FatCatDB {
                     break;
                 }
 
-                if (query.IndexFilters.ContainsKey(propIndex)) {
+                if (query.PathFilters.ContainsKey(propIndex)) {
                     // Index level is fixed by a filter
                     continue;
                 }
@@ -99,11 +80,11 @@ namespace FatCatDB {
                         currentSorting.Add(Table.ColumnNames[directive.Item1]);
                     }
 
-                    foreach(var index in FreePathFilters.Keys) {
+                    foreach(var index in this.PacketQuery.PathFilters.Keys) {
                         recommend.Add(Table.ColumnNames[index]);
                     }
 
-                    foreach(var item in FreeSorting) {
+                    foreach(var item in this.PacketQuery.Sorting) {
                         recommend.Add(Table.ColumnNames[item.Item1]);
                     }
 
@@ -121,7 +102,7 @@ namespace FatCatDB {
         private TableIndex<T> FindBestIndex(IndexPriority prio) {
             var indices = Table.GetIndices();
             var orderBy = Query.Sorting;
-            var indexFilters = Query.IndexFilters;
+            var indexFilters = Query.PathFilters;
 
             indices.Sort((i2, i1) => {
                 int indexLevel = 0;
@@ -281,7 +262,7 @@ namespace FatCatDB {
                 string column = Table.ColumnNames[propIndex];
                 string operation = "Full scan (unsorted)";
 
-                if (this.Query.IndexFilters.ContainsKey(propIndex)) {
+                if (this.Query.PathFilters.ContainsKey(propIndex)) {
                     operation = "Select one (exact match)";
                 }
                 else if (this.SortingAssoc.ContainsKey(propIndex)) {
@@ -296,12 +277,12 @@ namespace FatCatDB {
                 sb.AppendLine($"    - Apply flex filtering.");
             }
 
-            if (this.FreePathFilters.Count > 0) {
+            if (this.PacketQuery.PathFilters.Count > 0) {
                 sb.AppendLine($"    - Apply the 'Where' filters, which weren't used for an index level.");
             }
 
-            if (FreeSorting.Count > 0) {
-                var sortingColumns = FreeSorting.Select(
+            if (this.PacketQuery.Sorting.Count > 0) {
+                var sortingColumns = this.PacketQuery.Sorting.Select(
                     x => Table.ColumnNames[x.Item1]
                 ).ToArray();
                 

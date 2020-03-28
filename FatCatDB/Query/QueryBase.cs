@@ -26,7 +26,7 @@ namespace FatCatDB {
     /// <typeparam name="T">An annotated class of a database table record</typeparam>
     internal class QueryBase<T> where T : class, new() {
         internal Table<T> Table { get; }
-        internal Dictionary<int, PathFilter<T>> IndexFilters { get; } = new Dictionary<int, PathFilter<T>>();
+        internal Dictionary<int, PathFilter<T>> PathFilters { get; } = new Dictionary<int, PathFilter<T>>();
         internal List<Func<T, bool>> FlexFilters { get; } = new List<Func<T, bool>>();
         private Bookmark bookmark = null;
         internal Bookmark Bookmark { get { return bookmark; } }
@@ -45,11 +45,11 @@ namespace FatCatDB {
 
         private PathFilter<T> GetOrAddPathFilter(Expression<Func<T, object>> property) {
             int propIndex = Table.GetPropertyIndex(property);
-            if (!this.IndexFilters.ContainsKey(propIndex)) {
-                this.IndexFilters[propIndex] = new PathFilter<T>(this.Table, propIndex);
+            if (!this.PathFilters.ContainsKey(propIndex)) {
+                this.PathFilters[propIndex] = new PathFilter<T>(this.Table, propIndex);
             }
 
-            return this.IndexFilters[propIndex];
+            return this.PathFilters[propIndex];
         }
 
         /// <summary>

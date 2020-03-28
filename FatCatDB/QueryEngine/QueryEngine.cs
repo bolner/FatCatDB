@@ -70,7 +70,7 @@ namespace FatCatDB
             this.table = queryPlan.Table;
             this.queryPlan = queryPlan;
             this.paralellism = table.DbContext.Configuration.QueryParallelism;
-            this.indexFilters = queryPlan.Query.IndexFilters;
+            this.indexFilters = queryPlan.Query.PathFilters;
             this.limit = this.queryPlan.Query.QueryLimit;
             var bookmark = this.queryPlan.Query.Bookmark;
 
@@ -290,8 +290,8 @@ namespace FatCatDB
                     throw payload.Exception;
                 }
 
-                this.activeRecords = payload.Packet.GetFilteredRecords(this.queryPlan).ToArray();
-                this.activeRecordIndex = FindActiveRecordIndex();
+                this.activeRecords = payload.Packet.GetFilteredRecords(this.queryPlan.PacketQuery).ToArray();
+                this.activeRecordIndex = FindInitialActiveRecordIndex();
             } while (true);
         }
 
@@ -335,8 +335,8 @@ namespace FatCatDB
                     throw payload.Exception;
                 }
 
-                this.activeRecords = payload.Packet.GetFilteredRecords(this.queryPlan).ToArray();
-                this.activeRecordIndex = FindActiveRecordIndex();
+                this.activeRecords = payload.Packet.GetFilteredRecords(this.queryPlan.PacketQuery).ToArray();
+                this.activeRecordIndex = FindInitialActiveRecordIndex();
             } while (true);
         }
 
@@ -345,7 +345,7 @@ namespace FatCatDB
         /// </summary>
         /// <returns>The index of the next record, or "activeRecords.Length" if we
         ///     should jump to the next packet.</returns>
-        private long FindActiveRecordIndex() {
+        private long FindInitialActiveRecordIndex() {
             if (this.bookmarkFragment == null || this.bookmarkApplied) {
                 return 0;
             }
@@ -431,9 +431,10 @@ namespace FatCatDB
         /// <param name="asc">Sort the result ascending=true or descending=false</param>
         /// <param name="isLastLevel">On the last level it lists files, otherwise directories</param>
         /// <param name="propertyIndex">Identifies the column and its type</param>
-        /// <param name="pathFilter">If not NULL, then return values which come after this value.</param>
-        private string[] 
-        ListFilesInFolder(string folder, bool asc, bool isLastLevel, int propertyIndex, PathFilter<T> pathFilter) {
+        /// <param name="pathFilter">If not NULL, then filter the values by it</param>
+        private string[] ListFilesInFolder(string folder, bool asc, bool isLastLevel, int propertyIndex,
+                PathFilter<T> pathFilter) {
+            
             IEnumerable<Tuple<IComparable, string>> files;
             IOrderedEnumerable<Tuple<IComparable, string>> orderedFiles;
 

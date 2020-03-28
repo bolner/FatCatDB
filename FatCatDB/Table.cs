@@ -136,7 +136,7 @@ namespace FatCatDB {
                     }
 
                     indices.Add(
-                        new TableIndex<T>(this, recordType.Name, indexAtt.Name, props, indexCount)
+                        new TableIndex<T>(indexAtt.Name, props, indexCount)
                     );
                     indexCount++;
                 }
